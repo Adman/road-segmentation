@@ -5,7 +5,6 @@ from keras.regularizers import l2
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
-from layers import BilinearUpSampling2D
 
 # taken from
 # https://github.com/zhixuhao/unet/blob/master/model.py#L13

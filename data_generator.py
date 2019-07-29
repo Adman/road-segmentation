@@ -4,7 +4,7 @@ import glob
 import skimage.io as io
 from skimage.transform import resize
 import os
-import cv2
+#import cv2
 
 
 Road = [128, 64, 128]
@@ -13,7 +13,7 @@ COLORS = np.array([Road, Noroad])
 
 
 def fix_mask(mask):
-    '''The given mask should contain only 0 or 255 values'''
+    '''The given mask should contain only binary values'''
     mask[mask <= 100] = 0.0
     mask[mask > 100] = 1.0
     return mask
@@ -57,18 +57,18 @@ def train_generator(batch_size, train_path, image_folder, mask_folder, img_targe
 def load_data_memory(train_paths, image_folder, mask_folder, resize=(320, 240)):
     X = []
     Y = []
-    for train_path in train_paths:
-        for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
-            img = cv2.imread(i) / 255
-            img = cv2.resize(img, resize)
-            X.append(img)
+    #for train_path in train_paths:
+    #    for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
+    #        img = cv2.imread(i) / 255
+    #        img = cv2.resize(img, resize)
+    #        X.append(img)
 
-        for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
-            mask = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
-            mask = cv2.resize(mask, resize)
-            mask = mask.reshape(resize[1], resize[0], 1)
-            mask = mask / 255
-            Y.append(mask)
+    #    for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
+    #        mask = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+    #        mask = cv2.resize(mask, resize)
+    #        mask = mask.reshape(resize[1], resize[0], 1)
+    #        mask = mask / 255
+    #        Y.append(mask)
 
     X = np.array(X)
     Y = np.array(Y)

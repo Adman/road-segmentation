@@ -5,12 +5,12 @@ from keras.regularizers import l2
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
-from layers import BilinearUpSampling2D
+from .layers import BilinearUpSampling2D
 
 
 # taken from
 # https://github.com/aurora95/Keras-FCN/blob/master/models.py#L41
-def FCN_Vgg16_32s(pretrained_weights=None, input_size=(480, 640, 3), weight_decay=0.):
+def fcn_vgg16_32s(pretrained_weights=None, input_size=(480, 640, 3), weight_decay=0.):
     img_input = Input(input_size)
 
     # Block 1

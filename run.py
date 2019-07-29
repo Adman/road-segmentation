@@ -12,8 +12,8 @@ import models
 
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s']
 MODEL_MAPPING = {
-    'unet': models.unet.unet,
-    'fcn_vgg16_32s': models.fcn_vgg16_32s.fcn_vgg16_32s
+    'unet': models.unet,
+    'fcn_vgg16_32s': models.fcn_vgg16_32s
 }
 
 
@@ -22,6 +22,7 @@ RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
 INPUT_SIZE = (240, 320, 3)
 BATCH_SIZE = 15
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
+N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
 
 
@@ -41,7 +42,7 @@ def cli():
               help='Whether to use data augmentation')
 @click.option('--epochs', '-e', type=int, default=3,
               help='Number of epochs')
-def train(model, gen, plot, epochs):
+def train(model, gen, plot, aug, epochs):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
@@ -55,20 +56,21 @@ def train(model, gen, plot, epochs):
 
     if gen:
         #data_gen_args = dict(zoom_range=0.05, horizontal_flip=True)
+        # TODO: augmentation
         my_data_gen = train_generator(BATCH_SIZE, 'data/train', 'image',
                                       'masks',
                                       img_target_size=IMG_TARGET_SIZE, augs={})
-        # TODO: change this to val generator
         val_data_gen = train_generator(1, 'data/val', 'image', 'masks',
                                        img_target_size=IMG_TARGET_SIZE)
 
         steps_per_epoch = N_TRAIN_SAMPLES // BATCH_SIZE
 
-        history = model.fit_generator(my_data_gen, steps_per_epoch,
+        history = model.fit_generator(my_data_gen,
+                                      steps_per_epoch=steps_per_epoch,
                                       epochs=epochs,
                                       callbacks=[model_checkpoint],
                                       validation_data=val_data_gen,
-                                      validation_steps=N_TRAIN_SAMPLES*0.1)
+                                      validation_steps=N_VAL_SAMPLES)
     else:
         X_train, Y_train = load_data_memory(['data/train', 'data/val'],
                                             'image', 'masks',

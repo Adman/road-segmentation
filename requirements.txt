@@ -1,2 +1,5 @@
 click~=7.0
-
+matplotlib~=3.0.3
+Keras~=2.2.4
+tensorflow~=1.14.0
+scikit-image~=0.15.0
