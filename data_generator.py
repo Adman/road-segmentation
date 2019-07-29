@@ -7,7 +7,7 @@ import os
 import cv2
 
 
-Road = [128,64,128]
+Road = [128, 64, 128]
 Noroad = [255, 73, 95]
 COLORS = np.array([Road, Noroad])
 
@@ -54,31 +54,28 @@ def train_generator(batch_size, train_path, image_folder, mask_folder, img_targe
         yield (img, mask)
 
 
-def load_data_memory(train_path, image_folder, mask_folder, resize=(320, 240)):
+def load_data_memory(train_paths, image_folder, mask_folder, resize=(320, 240)):
     X = []
-    for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
-        img = cv2.imread(i) / 255
-        img = cv2.resize(img, resize)
-        X.append(img)
-    
     Y = []
-    for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
-        mask = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
-        mask = cv2.resize(mask, resize)
-        mask = mask.reshape(resize[1], resize[0], 1)
-        mask = mask / 255
-        Y.append(mask)
-    
+    for train_path in train_paths:
+        for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
+            img = cv2.imread(i) / 255
+            img = cv2.resize(img, resize)
+            X.append(img)
+
+        for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
+            mask = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            mask = cv2.resize(mask, resize)
+            mask = mask.reshape(resize[1], resize[0], 1)
+            mask = mask / 255
+            Y.append(mask)
+
     X = np.array(X)
     Y = np.array(Y)
 
     return (X, Y)
 
 
-#def test_data_generator(test_path):
-#    for i in glob.glob(os.path.join(test_path, '*.png'), recursive=False):
-#        img = io.imread(i)
-#        yield img
 def test_data_generator(test_path, image_folder, img_target_size=(240, 320)):
     test_datagen = ImageDataGenerator()
 
@@ -88,7 +85,7 @@ def test_data_generator(test_path, image_folder, img_target_size=(240, 320)):
         classes=[image_folder],
         target_size=img_target_size,
         batch_size=1)
-    
+
     for img in image_gen:
         img /= 255
         yield img
@@ -101,7 +98,7 @@ def eval_generator(batch_size, test_path, image_folder, mask_folder, img_target_
 def save_predicted_images(path, test_image_folder, predictions, img_target_size):
     os.makedirs(path, exist_ok=True)
     test_imgs = sorted(glob.glob(os.path.join(test_image_folder, '*.png')))
-    
+
     for p, t in zip(predictions, test_imgs):
         p[p <= 0.5] = 0
         p[p > 0.5] = 255
