@@ -6,7 +6,6 @@ import cv2
 import click
 
 
-
 def save(i, folder, mask_folder):
     iname = os.path.basename(i)
 
@@ -29,7 +28,7 @@ def save(i, folder, mask_folder):
 
 
 @click.command()
-@click.option('--val', default=False,
+@click.option('--val', type=bool, default=False,
               help='Boolean, whether to create validation set')
 @click.option('--img_folder', default='img',
               help='Path to folder with images')
