@@ -6,7 +6,13 @@ from matplotlib import pyplot as plt
 
 from keras.callbacks import ModelCheckpoint
 
-from data_generator import *
+from data_generator import (
+    train_generator,
+    test_data_generator,
+    eval_generator,
+    save_predicted_images,
+    load_data_memory,
+)
 import models
 
 
@@ -52,7 +58,7 @@ def train(model, gen, plot, aug, epochs):
     model_checkpoint = ModelCheckpoint(model_out, monitor='loss',
                                        verbose=1, save_best_only=True)
 
-    model = MODEL_MAPPING[model](input_size=INPUT_SIZE)
+    _model = MODEL_MAPPING[model](input_size=INPUT_SIZE)
 
     if gen:
         #data_gen_args = dict(zoom_range=0.05, horizontal_flip=True)
@@ -65,21 +71,21 @@ def train(model, gen, plot, aug, epochs):
 
         steps_per_epoch = N_TRAIN_SAMPLES // BATCH_SIZE
 
-        history = model.fit_generator(my_data_gen,
-                                      steps_per_epoch=steps_per_epoch,
-                                      epochs=epochs,
-                                      callbacks=[model_checkpoint],
-                                      validation_data=val_data_gen,
-                                      validation_steps=N_VAL_SAMPLES)
+        history = _model.fit_generator(my_data_gen,
+                                       steps_per_epoch=steps_per_epoch,
+                                       epochs=epochs,
+                                       callbacks=[model_checkpoint],
+                                       validation_data=val_data_gen,
+                                       validation_steps=N_VAL_SAMPLES)
     else:
         X_train, Y_train = load_data_memory(['data/train', 'data/val'],
                                             'image', 'masks',
                                             resize=RESIZE_TO)
-        history = model.fit(X_train, Y_train,
-                            epochs=epochs,
-                            batch_size=BATCH_SIZE,
-                            callbacks=[model_checkpoint],
-                            validation_split=0.1)
+        history = _model.fit(X_train, Y_train,
+                             epochs=epochs,
+                             batch_size=BATCH_SIZE,
+                             callbacks=[model_checkpoint],
+                             validation_split=0.1)
 
     if plot:
         plt.figure()
@@ -95,23 +101,38 @@ def train(model, gen, plot, aug, epochs):
         plt.savefig('plots/acc_{}.png'.format(model_filename))
 
 
-def evaluate():
-    pass
-    #model = unet(pretrained_weights='unet_zajac.hdf5', input_size=INPUT_SIZE)
-    #model = unet(input_size=INPUT_SIZE)
-    #eval_gen = eval_generator(1, 'data/test', 'image', 'masks', img_target_size=IMG_TARGET_SIZE)
-    #loss, acc = model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES, verbose=0)
-    #print('Eval loss, acc: ', loss, acc)
+@click.command(help='Evaluate specified model on a test set')
+@click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
+              required=True, help='Model to evaluate')
+@click.option('--path', '-p', help='Path to saved model')
+def evaluate(model, path):
+    _model = MODEL_MAPPING[model]
+    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE)
+    eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
+                              img_target_size=IMG_TARGET_SIZE)
+    loss, acc = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
+                                          verbose=0)
+    print('Eval loss, acc: ', loss, acc)
 
 
-def predict():
-    pass
-    #test_gen = test_data_generator('data/test', 'image', img_target_size=IMG_TARGET_SIZE)
-    #results = model.predict_generator(test_gen, steps=N_TEST_SAMPLES, verbose=1)
-    #save_predicted_images('data/predictions', 'data/test/image', results, IMG_TARGET_SIZE)
+@click.command(help='Evaluate specified model on a test set')
+@click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
+              required=True, help='Model to evaluate')
+@click.option('--path', '-p', help='Path to saved model')
+def predict(model, path):
+    _model = MODEL_MAPPING[model]
+    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE)
+    test_gen = test_data_generator('data/test', 'image',
+                                   img_target_size=IMG_TARGET_SIZE)
+    results = _model.predict_generator(test_gen, steps=N_TEST_SAMPLES,
+                                       verbose=1)
+    save_predicted_images('data/predictions', 'data/test/image', results,
+                          IMG_TARGET_SIZE)
 
 
 cli.add_command(train)
+cli.add_command(evaluate)
+cli.add_command(predict)
 
 
 if __name__ == '__main__':

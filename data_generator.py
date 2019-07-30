@@ -1,10 +1,11 @@
+import glob
+import os
+
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
-import glob
 import skimage.io as io
 from skimage.transform import resize
-import os
-#import cv2
+import cv2
 
 
 Road = [128, 64, 128]
@@ -23,7 +24,8 @@ def fix_mask(mask):
 # https://github.com/zhixuhao/unet/blob/master/data.py#L4
 # and https://github.com/keras-team/keras/issues/3059#issuecomment-364787723
 # and https://stackoverflow.com/a/42462830/1442465
-def train_generator(batch_size, train_path, image_folder, mask_folder, img_target_size=(320, 240), augs={}):
+def train_generator(batch_size, train_path, image_folder, mask_folder,
+                    img_target_size=(320, 240), augs={}):
     image_datagen = ImageDataGenerator(**augs)
     masks_datagen = ImageDataGenerator(**augs)
 
@@ -57,18 +59,18 @@ def train_generator(batch_size, train_path, image_folder, mask_folder, img_targe
 def load_data_memory(train_paths, image_folder, mask_folder, resize=(320, 240)):
     X = []
     Y = []
-    #for train_path in train_paths:
-    #    for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
-    #        img = cv2.imread(i) / 255
-    #        img = cv2.resize(img, resize)
-    #        X.append(img)
+    for train_path in train_paths:
+        for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
+            img = cv2.imread(i) / 255
+            img = cv2.resize(img, resize)
+            X.append(img)
 
-    #    for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
-    #        mask = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
-    #        mask = cv2.resize(mask, resize)
-    #        mask = mask.reshape(resize[1], resize[0], 1)
-    #        mask = mask / 255
-    #        Y.append(mask)
+        for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
+            mask = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            mask = cv2.resize(mask, resize)
+            mask = mask.reshape(resize[1], resize[0], 1)
+            mask = mask / 255
+            Y.append(mask)
 
     X = np.array(X)
     Y = np.array(Y)
