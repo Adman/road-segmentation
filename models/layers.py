@@ -45,6 +45,7 @@ def resize_images_bilinear(X, height_factor=1, width_factor=1, target_height=Non
     else:
         raise Exception('Invalid data_format: ' + data_format)
 
+
 class BilinearUpSampling2D(Layer):
     def __init__(self, size=(1, 1), target_size=None, data_format='default', **kwargs):
         if data_format == 'default':
@@ -93,4 +94,3 @@ class BilinearUpSampling2D(Layer):
         config = {'size': self.size, 'target_size': self.target_size}
         base_config = super(BilinearUpSampling2D, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
-

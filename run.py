@@ -16,16 +16,17 @@ from data_generator import (
 import models
 
 
-AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s']
+AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet']
 MODEL_MAPPING = {
     'unet': models.unet,
-    'fcn_vgg16_32s': models.fcn_vgg16_32s
+    'fcn_vgg16_32s': models.fcn_vgg16_32s,
+    'segnet': models.segnet
 }
 
 
-IMG_TARGET_SIZE = (240, 320)
+IMG_TARGET_SIZE = (480, 640)
 RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
-INPUT_SIZE = (240, 320, 3)
+INPUT_SIZE = (480, 640, 3)
 BATCH_SIZE = 15
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
@@ -61,11 +62,13 @@ def train(model, gen, plot, aug, epochs):
     _model = MODEL_MAPPING[model](input_size=INPUT_SIZE)
 
     if gen:
-        #data_gen_args = dict(zoom_range=0.05, horizontal_flip=True)
-        # TODO: augmentation
+        data_gen_args = {}
+        if aug:
+            data_gen_args = dict(zoom_range=0.05, horizontal_flip=True)
         my_data_gen = train_generator(BATCH_SIZE, 'data/train', 'image',
                                       'masks',
-                                      img_target_size=IMG_TARGET_SIZE, augs={})
+                                      img_target_size=IMG_TARGET_SIZE,
+                                      augs=data_gen_args)
         val_data_gen = train_generator(1, 'data/val', 'image', 'masks',
                                        img_target_size=IMG_TARGET_SIZE)
 

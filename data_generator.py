@@ -25,7 +25,7 @@ def fix_mask(mask):
 # and https://github.com/keras-team/keras/issues/3059#issuecomment-364787723
 # and https://stackoverflow.com/a/42462830/1442465
 def train_generator(batch_size, train_path, image_folder, mask_folder,
-                    img_target_size=(320, 240), augs={}):
+                    img_target_size=(640, 480), augs={}):
     image_datagen = ImageDataGenerator(**augs)
     masks_datagen = ImageDataGenerator(**augs)
 
