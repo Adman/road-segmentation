@@ -6,6 +6,7 @@ from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
 from .layers import BilinearUpSampling2D
+from .metrics import mean_iou
 
 
 # taken from

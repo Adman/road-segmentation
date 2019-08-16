@@ -5,6 +5,8 @@ from keras.regularizers import l2
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
+from .metrics import mean_iou
+
 
 # taken from
 # https://github.com/zhixuhao/unet/blob/master/model.py#L13
@@ -52,7 +54,8 @@ def unet(pretrained_weights=None, input_size=(480, 640, 3)):
 
     model = Model(input = inputs, output = conv10)
 
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy',
+                  metrics = ['accuracy', mean_iou])
     
     #model.summary()
 

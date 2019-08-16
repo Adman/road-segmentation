@@ -5,6 +5,8 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import *
 
+from .metrics import mean_iou
+
 
 def segnet(pretrained_weights=None, input_size=(480, 640, 3)):
     kernel = 3
@@ -122,7 +124,7 @@ def segnet(pretrained_weights=None, input_size=(480, 640, 3)):
 
     autoencoder.add(Activation('sigmoid'))
     autoencoder.compile(optimizer=SGD(lr=0.001, momentum=0.9, decay=0.0005, nesterov=False),
-                        loss='binary_crossentropy', metrics=['accuracy'])
+                        loss='binary_crossentropy', metrics=['accuracy', mean_iou])
     # autoencoder.summary()
 
     if (pretrained_weights):

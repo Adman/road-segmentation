@@ -3,7 +3,9 @@ import glob
 
 import click
 from matplotlib import pyplot as plt
+plt.switch_backend('agg')
 
+import keras.backend as K
 from keras.callbacks import ModelCheckpoint
 
 from data_generator import (
@@ -27,7 +29,7 @@ MODEL_MAPPING = {
 IMG_TARGET_SIZE = (480, 640)
 RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
 INPUT_SIZE = (480, 640, 3)
-BATCH_SIZE = 15
+BATCH_SIZE = 2
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
@@ -49,7 +51,9 @@ def cli():
               help='Whether to use data augmentation')
 @click.option('--epochs', '-e', type=int, default=3,
               help='Number of epochs')
-def train(model, gen, plot, aug, epochs):
+@click.option('--hsv', '-h', type=bool, default=False,
+              help='Whether to convert rgb image to hsv')
+def train(model, gen, plot, aug, epochs, hsv):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
@@ -65,10 +69,12 @@ def train(model, gen, plot, aug, epochs):
         data_gen_args = {}
         if aug:
             data_gen_args = dict(zoom_range=0.05, horizontal_flip=True)
+
         my_data_gen = train_generator(BATCH_SIZE, 'data/train', 'image',
                                       'masks',
                                       img_target_size=IMG_TARGET_SIZE,
-                                      augs=data_gen_args)
+                                      augs=data_gen_args,
+                                      tohsv=hsv)
         val_data_gen = train_generator(1, 'data/val', 'image', 'masks',
                                        img_target_size=IMG_TARGET_SIZE)
 
@@ -83,7 +89,8 @@ def train(model, gen, plot, aug, epochs):
     else:
         X_train, Y_train = load_data_memory(['data/train', 'data/val'],
                                             'image', 'masks',
-                                            resize=RESIZE_TO)
+                                            resize=RESIZE_TO,
+                                            tohsv=hsv)
         history = _model.fit(X_train, Y_train,
                              epochs=epochs,
                              batch_size=BATCH_SIZE,
@@ -108,25 +115,36 @@ def train(model, gen, plot, aug, epochs):
 @click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
               required=True, help='Model to evaluate')
 @click.option('--path', '-p', help='Path to saved model')
-def evaluate(model, path):
+@click.option('--hsv', '-h', type=bool, default=False,
+              help='Whether to convert rgb image to hsv')
+def evaluate(model, path, hsv):
+    import numpy as np
     _model = MODEL_MAPPING[model]
     _model = _model(pretrained_weights=path, input_size=INPUT_SIZE)
     eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
-                              img_target_size=IMG_TARGET_SIZE)
-    loss, acc = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
-                                          verbose=0)
-    print('Eval loss, acc: ', loss, acc)
+                              img_target_size=IMG_TARGET_SIZE,
+                              tohsv=hsv)
+
+    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
+                                                verbose=0)
+    print('=======================================')
+    print('Evaluation results')
+    print('Loss: {}, Acc: {}, Mean IoU: {}'.format(loss, acc, miou))
+    print('=======================================')
 
 
 @click.command(help='Evaluate specified model on a test set')
 @click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
               required=True, help='Model to evaluate')
 @click.option('--path', '-p', help='Path to saved model')
-def predict(model, path):
+@click.option('--hsv', '-h', type=bool, default=False,
+              help='Whether to convert rgb image to hsv')
+def predict(model, path, hsv):
     _model = MODEL_MAPPING[model]
     _model = _model(pretrained_weights=path, input_size=INPUT_SIZE)
     test_gen = test_data_generator('data/test', 'image',
-                                   img_target_size=IMG_TARGET_SIZE)
+                                   img_target_size=IMG_TARGET_SIZE,
+                                   tohsv=hsv)
     results = _model.predict_generator(test_gen, steps=N_TEST_SAMPLES,
                                        verbose=1)
     save_predicted_images('data/predictions', 'data/test/image', results,

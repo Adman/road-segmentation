@@ -7,26 +7,29 @@ import skimage.io as io
 from skimage.transform import resize
 import cv2
 
-
 Road = [128, 64, 128]
 Noroad = [255, 73, 95]
 COLORS = np.array([Road, Noroad])
 
 
-def fix_mask(mask):
-    '''The given mask should contain only binary values'''
-    mask[mask <= 100] = 0.0
-    mask[mask > 100] = 1.0
-    return mask
+def rgb_to_hsv(img):
+    return cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
 
-# inspired by
-# https://github.com/zhixuhao/unet/blob/master/data.py#L4
-# and https://github.com/keras-team/keras/issues/3059#issuecomment-364787723
-# and https://stackoverflow.com/a/42462830/1442465
+def normalize_image(img, colorspace='rgb'):
+    if colorspace == 'rgb':
+        return img / 255
+    elif colorspace == 'hsv':
+        return img / [180, 255, 255]
+
+
 def train_generator(batch_size, train_path, image_folder, mask_folder,
-                    img_target_size=(640, 480), augs={}):
-    image_datagen = ImageDataGenerator(**augs)
+                    img_target_size=(480, 640), augs={}, tohsv=False):
+    if tohsv:
+        image_datagen = ImageDataGenerator(preprocessing_function=rgb_to_hsv,
+                                           **augs)
+    else:
+        image_datagen = ImageDataGenerator(**augs)
     masks_datagen = ImageDataGenerator(**augs)
 
     image_generator = image_datagen.flow_from_directory(
@@ -49,20 +52,35 @@ def train_generator(batch_size, train_path, image_folder, mask_folder,
         seed=1
     )
 
+    colorspace = 'rgb'
+    if tohsv:
+        colorspace = 'hsv'
+
     generator = zip(image_generator, mask_generator)
     for (img, mask) in generator:
-        img /= 255
+        img = normalize_image(img, colorspace=colorspace)
         mask /= 255
         yield (img, mask)
 
 
-def load_data_memory(train_paths, image_folder, mask_folder, resize=(320, 240)):
+def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
+                     tohsv=False):
     X = []
     Y = []
+
+    colorspace = 'rgb'
+    if tohsv:
+        colospace = 'hsv'
+
     for train_path in train_paths:
         for i in glob.glob(os.path.join(train_path, image_folder, '*.png')):
-            img = cv2.imread(i) / 255
+            img = cv2.imread(i)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, resize)
+            # TODO: img to hsv
+            if tohsv:
+                img = rgb_to_hsv(img)
+            img = normalize_image(img, colorspace=colorspace)
             X.append(img)
 
         for i in glob.glob(os.path.join(train_path, mask_folder, '*.png')):
@@ -78,23 +96,31 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(320, 240)):
     return (X, Y)
 
 
-def test_data_generator(test_path, image_folder, img_target_size=(240, 320)):
-    test_datagen = ImageDataGenerator()
+def test_data_generator(test_path, image_folder, img_target_size=(480, 640),
+                        tohsv=False):
+    augs = {}
+    if tohsv:
+        augs['preprocessing_function'] = rgb_to_hsv
+
+    test_datagen = ImageDataGenerator(**augs)
 
     image_gen = test_datagen.flow_from_directory(
         test_path,
         class_mode=None,
         classes=[image_folder],
         target_size=img_target_size,
-        batch_size=1)
+        batch_size=1
+    )
 
     for img in image_gen:
         img /= 255
         yield img
 
 
-def eval_generator(batch_size, test_path, image_folder, mask_folder, img_target_size=(320, 240)):
-    return train_generator(batch_size, test_path, image_folder, mask_folder, img_target_size, {})
+def eval_generator(batch_size, test_path, image_folder, mask_folder,
+                   img_target_size=(480, 640), tohsv=False):
+    return train_generator(batch_size, test_path, image_folder, mask_folder,
+                           img_target_size, {}, tohsv=tohsv)
 
 
 def save_predicted_images(path, test_image_folder, predictions, img_target_size):
@@ -110,9 +136,9 @@ def save_predicted_images(path, test_image_folder, predictions, img_target_size)
         basename = os.path.basename(t)
 
         # save predicted mask
-        io.imsave(os.path.join(path, 'mask_{}'.format(basename)), p)
+        #io.imsave(os.path.join(path, 'mask_{}'.format(basename)), p)
 
-        green = np.ones(img.shape, dtype=np.float) * (0,1,0)
+        green = np.ones(img.shape, dtype=np.float) * (0, 1, 0)
         transparency = .25
         p /= 255
         p *= transparency
