@@ -18,21 +18,23 @@ from data_generator import (
 import models
 
 
-AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet']
+AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet']
 MODEL_MAPPING = {
     'unet': models.unet,
     'fcn_vgg16_32s': models.fcn_vgg16_32s,
-    'segnet': models.segnet
+    'segnet': models.segnet,
+    'resnet': models.resnet
 }
 
 
-IMG_TARGET_SIZE = (480, 640)
+IMG_TARGET_SIZE = (224, 320)#(480, 640)#(224, 320)
 RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
-INPUT_SIZE = (480, 640, 3)
+INPUT_SIZE = IMG_TARGET_SIZE + (3, )
 BATCH_SIZE = 2
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
+LOSS = 'binary_crossentropy'
 
 
 @click.group()
@@ -57,18 +59,25 @@ def train(model, gen, plot, aug, epochs, hsv):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
-    model_filename = '{}_{}_{}'.format(model, str(gen), now_str)
+    model_filename = '{}_{}_{}_{}'.format(model,
+                                          str(gen),
+                                          'hsv' if hsv else 'rgb',
+                                          now_str)
 
     model_out = 'trained_models/{}.hdf5'.format(model_filename)
     model_checkpoint = ModelCheckpoint(model_out, monitor='loss',
                                        verbose=1, save_best_only=True)
 
-    _model = MODEL_MAPPING[model](input_size=INPUT_SIZE)
+    _model = MODEL_MAPPING[model](input_size=INPUT_SIZE,
+                                  loss=LOSS)
 
     if gen:
         data_gen_args = {}
         if aug:
-            data_gen_args = dict(zoom_range=0.05, horizontal_flip=True)
+            data_gen_args = dict(#zoom_range=0.05,
+                                 #rotation_range=15,
+                                 #brightness_range=[0.5, 1.5],
+                                 horizontal_flip=True)
 
         my_data_gen = train_generator(BATCH_SIZE, 'data/train', 'image',
                                       'masks',
@@ -107,6 +116,8 @@ def train(model, gen, plot, aug, epochs, hsv):
         plt.figure()
         plt.plot(history.history['acc'], label='train accuracy')
         plt.plot(history.history['val_acc'], label='validation accuracy')
+        plt.plot(history.history['mean_iou'], label='train mean IoU')
+        plt.plot(history.history['val_mean_iou'], label='validation mean IoU')
         plt.legend(loc='best')
         plt.savefig('plots/acc_{}.png'.format(model_filename))
 
@@ -118,14 +129,14 @@ def train(model, gen, plot, aug, epochs, hsv):
 @click.option('--hsv', '-h', type=bool, default=False,
               help='Whether to convert rgb image to hsv')
 def evaluate(model, path, hsv):
-    import numpy as np
     _model = MODEL_MAPPING[model]
-    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE)
-    eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
+    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE,
+                    loss=LOSS)
+    eval_gen = eval_generator(1, 'data/train', 'image', 'masks',
                               img_target_size=IMG_TARGET_SIZE,
                               tohsv=hsv)
 
-    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
+    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TRAIN_SAMPLES,
                                                 verbose=0)
     print('=======================================')
     print('Evaluation results')
@@ -141,7 +152,8 @@ def evaluate(model, path, hsv):
               help='Whether to convert rgb image to hsv')
 def predict(model, path, hsv):
     _model = MODEL_MAPPING[model]
-    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE)
+    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE,
+                    loss=LOSS)
     test_gen = test_data_generator('data/test', 'image',
                                    img_target_size=IMG_TARGET_SIZE,
                                    tohsv=hsv)

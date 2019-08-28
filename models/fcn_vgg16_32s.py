@@ -11,7 +11,9 @@ from .metrics import mean_iou
 
 # taken from
 # https://github.com/aurora95/Keras-FCN/blob/master/models.py#L41
-def fcn_vgg16_32s(pretrained_weights=None, input_size=(480, 640, 3), weight_decay=0.):
+def fcn_vgg16_32s(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
+    weight_decay = 0.
+
     img_input = Input(input_size)
 
     # Block 1
@@ -53,7 +55,8 @@ def fcn_vgg16_32s(pretrained_weights=None, input_size=(480, 640, 3), weight_deca
     x = BilinearUpSampling2D(target_size=tuple(input_size))(x)
 
     model = Model(img_input, x)
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = ['accuracy'])
+    model.compile(optimizer=Adam(lr=1e-4, decay=0.0005), loss=loss,
+                  metrics=['accuracy', mean_iou])
 
     if(pretrained_weights):
     	model.load_weights(pretrained_weights)

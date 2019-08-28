@@ -57,7 +57,25 @@ def train_generator(batch_size, train_path, image_folder, mask_folder,
         colorspace = 'hsv'
 
     generator = zip(image_generator, mask_generator)
+
+    #def _s(i, m, c):
+    #    green = np.ones(i.shape, dtype=np.float) * (0, 255, 0)
+    #    transparency = .25
+    #    p = m / 255
+    #    p *= transparency
+    #    # green over original image
+    #    out = green*p + (i)*(1.0-p)
+
+    #    # save mask overlaying image
+    #    io.imsave(os.path.join('data/xxx', '{}.png'.format(c)), out.astype(np.uint8))
+    #
+    #counter = 0
     for (img, mask) in generator:
+    #    _s(img[0], mask[0], counter)
+    #    counter += 1
+    #    _s(img[1], mask[1], counter)
+    #    counter += 1
+
         img = normalize_image(img, colorspace=colorspace)
         mask /= 255
         yield (img, mask)
@@ -77,7 +95,6 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
             img = cv2.imread(i)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, resize)
-            # TODO: img to hsv
             if tohsv:
                 img = rgb_to_hsv(img)
             img = normalize_image(img, colorspace=colorspace)
@@ -112,8 +129,12 @@ def test_data_generator(test_path, image_folder, img_target_size=(480, 640),
         batch_size=1
     )
 
+    colorspace = 'rgb'
+    if tohsv:
+        colorspace = 'hsv'
+
     for img in image_gen:
-        img /= 255
+        img = normalize_image(img, colorspace=colorspace)
         yield img
 
 
