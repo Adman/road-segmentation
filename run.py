@@ -8,6 +8,8 @@ plt.switch_backend('agg')
 import keras.backend as K
 from keras.callbacks import ModelCheckpoint
 
+import segmentation_models as sm
+
 from data_generator import (
     train_generator,
     test_data_generator,
@@ -18,23 +20,31 @@ from data_generator import (
 import models
 
 
-AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet']
+AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
+                    'unet_resnet34', 'unet_resnet50', 'unet_vgg16',
+                    'linknet_vgg16']
 MODEL_MAPPING = {
     'unet': models.unet,
     'fcn_vgg16_32s': models.fcn_vgg16_32s,
     'segnet': models.segnet,
-    'resnet': models.resnet
+    'resnet': models.resnet,
+ 
+    'unet_resnet34': models.unet_resnet34,
+    'unet_resnet50': models.unet_resnet50,
+    'unet_vgg16': models.unet_vgg16,
+
+    'linknet_vgg16': models.linknet_vgg16
 }
 
 
-IMG_TARGET_SIZE = (224, 320)#(480, 640)#(224, 320)
+IMG_TARGET_SIZE = (480, 640)
 RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
-INPUT_SIZE = IMG_TARGET_SIZE + (3, )
+INPUT_SIZE = IMG_TARGET_SIZE + (3,)
 BATCH_SIZE = 2
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
-LOSS = 'binary_crossentropy'
+LOSS = models.metrics.dice_coef_loss #'binary_crossentropy'
 
 
 @click.group()
@@ -59,9 +69,11 @@ def train(model, gen, plot, aug, epochs, hsv):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
-    model_filename = '{}_{}_{}_{}'.format(model,
-                                          str(gen),
+    model_filename = '{}_{}_{}_{}x{}_{}'.format(model,
+                                          'gen' if gen else 'nogen',
                                           'hsv' if hsv else 'rgb',
+                                          IMG_TARGET_SIZE[1],
+                                          IMG_TARGET_SIZE[0],
                                           now_str)
 
     model_out = 'trained_models/{}.hdf5'.format(model_filename)
@@ -74,32 +86,37 @@ def train(model, gen, plot, aug, epochs, hsv):
     if gen:
         data_gen_args = {}
         if aug:
-            data_gen_args = dict(#zoom_range=0.05,
-                                 #rotation_range=15,
-                                 #brightness_range=[0.5, 1.5],
+            data_gen_args = dict(fill_mode='constant',
+                                 #zoom_range=0.05,
+                                 rotation_range=20,
+                                 #vertical_flip=True,
                                  horizontal_flip=True)
 
         my_data_gen = train_generator(BATCH_SIZE, 'data/train', 'image',
                                       'masks',
                                       img_target_size=IMG_TARGET_SIZE,
                                       augs=data_gen_args,
-                                      tohsv=hsv)
-        val_data_gen = train_generator(1, 'data/val', 'image', 'masks',
-                                       img_target_size=IMG_TARGET_SIZE)
+                                      tohsv=hsv,
+                                      aug=aug)
+
+        X_val, Y_val = load_data_memory(['data/val'], 'image', 'masks',
+                                        resize=RESIZE_TO, tohsv=hsv)
 
         steps_per_epoch = N_TRAIN_SAMPLES // BATCH_SIZE
+        if aug and not hsv:
+            steps_per_epoch *= 3
 
         history = _model.fit_generator(my_data_gen,
                                        steps_per_epoch=steps_per_epoch,
                                        epochs=epochs,
                                        callbacks=[model_checkpoint],
-                                       validation_data=val_data_gen,
-                                       validation_steps=N_VAL_SAMPLES)
+                                       validation_data=(X_val, Y_val))
     else:
         X_train, Y_train = load_data_memory(['data/train', 'data/val'],
                                             'image', 'masks',
                                             resize=RESIZE_TO,
                                             tohsv=hsv)
+
         history = _model.fit(X_train, Y_train,
                              epochs=epochs,
                              batch_size=BATCH_SIZE,
@@ -136,7 +153,7 @@ def evaluate(model, path, hsv):
                               img_target_size=IMG_TARGET_SIZE,
                               tohsv=hsv)
 
-    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TRAIN_SAMPLES,
+    loss, acc, miou, _ = _model.evaluate_generator(eval_gen, steps=N_TRAIN_SAMPLES,
                                                 verbose=0)
     print('=======================================')
     print('Evaluation results')
@@ -159,6 +176,7 @@ def predict(model, path, hsv):
                                    tohsv=hsv)
     results = _model.predict_generator(test_gen, steps=N_TEST_SAMPLES,
                                        verbose=1)
+
     save_predicted_images('data/predictions', 'data/test/image', results,
                           IMG_TARGET_SIZE)
 
