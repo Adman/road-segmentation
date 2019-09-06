@@ -19,7 +19,6 @@ from data_generator import (
 )
 import models
 
-
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
                     'unet_resnet34', 'unet_resnet50', 'unet_vgg16',
                     'linknet_vgg16']
@@ -69,8 +68,9 @@ def train(model, gen, plot, aug, epochs, hsv):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
-    model_filename = '{}_{}_{}_{}x{}_{}'.format(model,
+    model_filename = '{}_{}_{}_{}_{}x{}_{}'.format(model,
                                           'gen' if gen else 'nogen',
+                                          'aug' if aug else 'noaug',
                                           'hsv' if hsv else 'rgb',
                                           IMG_TARGET_SIZE[1],
                                           IMG_TARGET_SIZE[0],
@@ -149,11 +149,11 @@ def evaluate(model, path, hsv):
     _model = MODEL_MAPPING[model]
     _model = _model(pretrained_weights=path, input_size=INPUT_SIZE,
                     loss=LOSS)
-    eval_gen = eval_generator(1, 'data/train', 'image', 'masks',
+    eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
                               img_target_size=IMG_TARGET_SIZE,
                               tohsv=hsv)
 
-    loss, acc, miou, _ = _model.evaluate_generator(eval_gen, steps=N_TRAIN_SAMPLES,
+    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
                                                 verbose=0)
     print('=======================================')
     print('Evaluation results')
