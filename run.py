@@ -64,7 +64,9 @@ def cli():
               help='Number of epochs')
 @click.option('--hsv', '-h', type=bool, default=False,
               help='Whether to convert rgb image to hsv')
-def train(model, gen, plot, aug, epochs, hsv):
+@click.option('--weights', '-w', type=str, default='',
+              help='Path pretrained weights')
+def train(model, gen, plot, aug, epochs, hsv, weights):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
@@ -82,6 +84,10 @@ def train(model, gen, plot, aug, epochs, hsv):
 
     _model = MODEL_MAPPING[model](input_size=INPUT_SIZE,
                                   loss=LOSS)
+
+    if weights != '':
+        _model.load_weights(weights)
+
 
     if gen:
         data_gen_args = {}
