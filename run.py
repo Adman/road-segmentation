@@ -21,7 +21,8 @@ import models
 
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
                     'unet_resnet34', 'unet_resnet50', 'unet_vgg16',
-                    'linknet_vgg16']
+                    'linknet_vgg16', 'linknet_resnet50',
+                    'fpn_resnet34', 'fpn_resnet50', 'fpn_vgg16']
 MODEL_MAPPING = {
     'unet': models.unet,
     'fcn_vgg16_32s': models.fcn_vgg16_32s,
@@ -32,7 +33,12 @@ MODEL_MAPPING = {
     'unet_resnet50': models.unet_resnet50,
     'unet_vgg16': models.unet_vgg16,
 
-    'linknet_vgg16': models.linknet_vgg16
+    'linknet_vgg16': models.linknet_vgg16,
+    'linknet_resnet50': models.linknet_resnet50,
+
+    'fpn_resnet34': models.fpn_resnet34,
+    'fpn_resnet50': models.fpn_resnet50,
+    'fpn_vgg16': models.fpn_vgg16
 }
 
 
@@ -109,7 +115,7 @@ def train(model, gen, plot, aug, epochs, hsv, weights):
                                         resize=RESIZE_TO, tohsv=hsv)
 
         steps_per_epoch = N_TRAIN_SAMPLES // BATCH_SIZE
-        if aug and not hsv:
+        if aug:
             steps_per_epoch *= 3
 
         history = _model.fit_generator(my_data_gen,

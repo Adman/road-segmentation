@@ -14,6 +14,11 @@ def linknet_with_backbone(encoder, pretrained_weights=None,
     return model
 
 
+def linknet_resnet50(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
+    return linknet_with_backbone('resnet50', pretrained_weights=pretrained_weights,
+                                 input_size=input_size, loss=loss)
+
+
 def linknet_vgg16(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
     return linknet_with_backbone('vgg16', pretrained_weights=pretrained_weights,
                                  input_size=input_size, loss=loss)

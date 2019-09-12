@@ -74,7 +74,7 @@ def train_generator(batch_size, train_path, image_folder, mask_folder,
     generator = zip(image_generator, mask_generator)
 
     for (img, mask) in generator:
-        if not tohsv and aug:
+        if aug:
             # blur augmentation
             img_aug = aug_blurer.augment_images(img)
             img_aug = normalize_image(img_aug, colorspace=colorspace)
