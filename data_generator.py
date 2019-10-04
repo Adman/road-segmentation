@@ -24,6 +24,7 @@ def rgb_to_hsv(img):
 def normalize_image(img, colorspace='rgb'):
     if colorspace == 'rgb':
         return img / 255
+        # return img / 127.5 - 1
     elif colorspace == 'hsv':
         # cv2 rgb to hsv returns H value in range [0, 180] if the image
         # is of type int. In case of float, the range is [0, 360]

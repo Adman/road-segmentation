@@ -1,12 +1,13 @@
 import datetime
 import glob
+import os
 
 import click
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
 
 import keras.backend as K
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 
 import segmentation_models as sm
 
@@ -20,6 +21,7 @@ from data_generator import (
 import models
 
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
+                    'resnet_bnn',
                     'unet_resnet34', 'unet_resnet50', 'unet_vgg16',
                     'linknet_vgg16', 'linknet_resnet50',
                     'fpn_resnet34', 'fpn_resnet50', 'fpn_vgg16']
@@ -28,6 +30,7 @@ MODEL_MAPPING = {
     'fcn_vgg16_32s': models.fcn_vgg16_32s,
     'segnet': models.segnet,
     'resnet': models.resnet,
+    'resnet_bnn': models.resnet_bnn,
  
     'unet_resnet34': models.unet_resnet34,
     'unet_resnet50': models.unet_resnet50,
@@ -50,6 +53,10 @@ N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
 LOSS = models.metrics.dice_coef_loss #'binary_crossentropy'
+#LOSS = 'binary_crossentropy'
+
+PRODUCTION_DATASET = 'data/datasets/deggendorf'
+TRAIN_DIRECTORY = 'data/train'
 
 
 @click.group()
@@ -72,7 +79,10 @@ def cli():
               help='Whether to convert rgb image to hsv')
 @click.option('--weights', '-w', type=str, default='',
               help='Path pretrained weights')
-def train(model, gen, plot, aug, epochs, hsv, weights):
+@click.option('--production', type=bool, default=False,
+              help='Whether to train on entire dataset for production')
+def train(model, gen, plot, aug, epochs, hsv, weights, production):
+    global N_TRAIN_SAMPLES
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
@@ -85,8 +95,9 @@ def train(model, gen, plot, aug, epochs, hsv, weights):
                                           now_str)
 
     model_out = 'trained_models/{}.hdf5'.format(model_filename)
-    model_checkpoint = ModelCheckpoint(model_out, monitor='loss',
+    model_checkpoint = ModelCheckpoint(model_out, monitor='val_loss',
                                        verbose=1, save_best_only=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=int(epochs*0.05))
 
     _model = MODEL_MAPPING[model](input_size=INPUT_SIZE,
                                   loss=LOSS)
@@ -94,17 +105,24 @@ def train(model, gen, plot, aug, epochs, hsv, weights):
     if weights != '':
         _model.load_weights(weights)
 
+    train_dir = TRAIN_DIRECTORY
+    if production:
+        train_dir = PRODUCTION_DATASET
+        N_TRAIN_SAMPLES = len(glob.glob(os.path.join(train_dir,
+                                                     'image/*.png'),
+                                        recursive=False))
 
     if gen:
         data_gen_args = {}
         if aug:
             data_gen_args = dict(fill_mode='constant',
                                  #zoom_range=0.05,
-                                 rotation_range=20,
-                                 #vertical_flip=True,
+                                 rotation_range=5,
+                                 vertical_flip=True,
                                  horizontal_flip=True)
 
-        my_data_gen = train_generator(BATCH_SIZE, 'data/train', 'image',
+        my_data_gen = train_generator(BATCH_SIZE, train_dir,
+                                      'image',
                                       'masks',
                                       img_target_size=IMG_TARGET_SIZE,
                                       augs=data_gen_args,
@@ -121,8 +139,9 @@ def train(model, gen, plot, aug, epochs, hsv, weights):
         history = _model.fit_generator(my_data_gen,
                                        steps_per_epoch=steps_per_epoch,
                                        epochs=epochs,
-                                       callbacks=[model_checkpoint],
+                                       callbacks=[model_checkpoint, early_stopping],
                                        validation_data=(X_val, Y_val))
+    # mainly just for testing purposes
     else:
         X_train, Y_train = load_data_memory(['data/train', 'data/val'],
                                             'image', 'masks',
@@ -132,7 +151,7 @@ def train(model, gen, plot, aug, epochs, hsv, weights):
         history = _model.fit(X_train, Y_train,
                              epochs=epochs,
                              batch_size=BATCH_SIZE,
-                             callbacks=[model_checkpoint],
+                             callbacks=[model_checkpoint, early_stopping],
                              validation_split=0.1)
 
     if plot:

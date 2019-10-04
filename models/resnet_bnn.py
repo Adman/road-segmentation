@@ -1,15 +1,23 @@
-from keras import backend as K
-from keras import layers
-from keras.layers import Activation
-from keras.layers import Input, Conv2D, ZeroPadding2D, MaxPooling2D, UpSampling2D, concatenate
-from keras.layers.normalization import BatchNormalization
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras import backend as K
+from tensorflow.keras import layers
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Input, Conv2D, ZeroPadding2D, MaxPooling2D, UpSampling2D, concatenate
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from larq.layers import QuantConv2D as QConv2D
+import larq
 
 from .metrics import mean_iou
 
+batchnorm_kwargs = dict(momentum=0.85, epsilon=1e-5, scale=False)
 
-def identity_block(input_tensor, kernel_size, filters, stage, block):
+lq_kwargs = dict(input_quantizer="ste_sign",
+                 kernel_quantizer="ste_sign",
+                 kernel_constraint="weight_clip",
+                 use_bias=False)
+
+def identity_block(input_tensor, kernel_size, filters, stage, block, binarize=False):
     filters1, filters2, filters3 = filters
     if K.image_data_format() == 'channels_last':
         bn_axis = 3
@@ -18,16 +26,21 @@ def identity_block(input_tensor, kernel_size, filters, stage, block):
     conv_name_base = 'res' + str(stage) + block + '_branch'
     bn_name_base = 'bn' + str(stage) + block + '_branch'
 
-    x = Conv2D(filters1, (1, 1), name=conv_name_base + '2a')(input_tensor)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2a')(x)
+    def conv_bn_block(filter_input, x, suffix, size=(1, 1), padding='valid'):
+        if binarize:
+            x = QConv2D(filter_input, size, padding=padding, name=conv_name_base + suffix, **lq_kwargs)(x)
+            return BatchNormalization(axis=bn_axis, name=bn_name_base + suffix, **batchnorm_kwargs)(x)
+        else:
+            x = Conv2D(filter_input, size, padding=padding, name=conv_name_base + suffix)(x)
+            return BatchNormalization(axis=bn_axis, name=bn_name_base + suffix)(x)
+
+    x = conv_bn_block(filters1, input_tensor, '2a')
     x = Activation('relu')(x)
 
-    x = Conv2D(filters2, kernel_size, padding='same', name=conv_name_base + '2b')(x)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2b')(x)
+    x = conv_bn_block(filters2, x, '2b', size=kernel_size,  padding='same')
     x = Activation('relu')(x)
 
-    x = Conv2D(filters3, (1, 1), name=conv_name_base + '2c')(x)
-    x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2c')(x)
+    x = conv_bn_block(filters3, x, '2c')
 
     x = layers.add([x, input_tensor])
     x = Activation('relu')(x)
@@ -97,7 +110,7 @@ def up_conv_block(input_tensor, kernel_size, filters, stage, block, strides=(1, 
 
 # taken from
 # https://github.com/danielelic/deep-segmentation/blob/master/train_resnet.py
-def resnet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
+def resnet_bnn(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
     f = 16
     bn_axis = 3
     classes = 1
@@ -122,11 +135,11 @@ def resnet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_cross
     x4 = identity_block(x, 3, [f * 4, f * 4, f * 8], stage=4, block='f')
 
     x = conv_block(x4, 3, [f * 8, f * 8, f * 16], stage=5, block='a')
-    x = identity_block(x, 3, [f * 8, f * 8, f * 16], stage=5, block='b')
+    x = identity_block(x, 3, [f * 8, f * 8, f * 16], stage=5, block='b', binarize=True)
     x = identity_block(x, 3, [f * 8, f * 8, f * 16], stage=5, block='c')
 
     x = up_conv_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='a')
-    x = identity_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='b')
+    x = identity_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='b', binarize=True)
     x = identity_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='c')
 
     x = concatenate([x, x4], axis=bn_axis)
