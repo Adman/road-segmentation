@@ -81,8 +81,10 @@ def train_generator(batch_size, train_path, image_folder, mask_folder,
             img_aug = normalize_image(img_aug, colorspace=colorspace)
             yield (img_aug, mask)
 
-            # fog augmentation TODO
-            #aug_fogger
+            # fog augmentation
+            # img_aug = aug_fogger.augment_images(img)
+            # img_aug = normalize_image(img_aug, colorspace=colorspace)
+            # yield (img_aug, mask)
 
             # contrast augmentation
             img_aug = aug_contraster.augment_images(img)
@@ -133,7 +135,7 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
 
     colorspace = 'rgb'
     if tohsv:
-        colospace = 'hsv'
+        colorspace = 'hsv'
 
     for train_path in train_paths:
         for i in sorted(glob.glob(os.path.join(train_path, image_folder, '*.png'))):
