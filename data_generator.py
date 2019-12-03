@@ -3,8 +3,6 @@ import os
 
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
-import skimage.io as io
-from skimage import transform
 import cv2
 from imgaug import augmenters as iaa
 
@@ -125,7 +123,8 @@ def test_data_generator(test_path, image_folder, img_target_size=(480, 640),
 def eval_generator(batch_size, test_path, image_folder, mask_folder,
                    img_target_size=(480, 640), tohsv=False):
     return train_generator(batch_size, test_path, image_folder, mask_folder,
-                           img_target_size, {}, tohsv=tohsv, aug=False)
+                           img_target_size, augs={}, tohsv=tohsv,
+                           aug=False)
 
 
 def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
@@ -160,30 +159,27 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
 
 
 
-def save_predicted_images(path, test_image_folder, predictions, img_target_size):
+def save_predicted_images(path, test_image_folder, predictions, resize_to):
     os.makedirs(path, exist_ok=True)
     test_imgs = sorted(glob.glob(os.path.join(test_image_folder, '*.png')))
+
+    COLORIZED_ONES = np.ones((480, 640, 3)) * (0, 1, 0)
 
     for p, t in zip(predictions, test_imgs):
         p[p <= 0.5] = 0
         p[p > 0.5] = 255
 
-        img = io.imread(t)
-        img = transform.resize(img, img_target_size)
+        img = cv2.imread(t)
+        img = cv2.resize(img, resize_to)
         basename = os.path.basename(t)
 
         # save predicted mask
-        #io.imsave(os.path.join(path, 'mask_{}'.format(basename)), p)
+        cv2.imwrite(os.path.join(path, 'mask_{}'.format(basename)), p)
 
-        green = np.ones(img.shape, dtype=np.float) * (0, 1, 0)
-        transparency = .25
-        p /= 255
-        p *= transparency
-        # green over original image
-        out = green*p + img*(1.0-p)
+        mask = cv2.cvtColor(p, cv2.COLOR_GRAY2BGR) * COLORIZED_ONES
+        out = cv2.addWeighted(img, 1, mask.astype(np.uint8), 0.3, 0)
 
-        # save mask overlaying image
-        io.imsave(os.path.join(path, '{}'.format(basename)), out)
+        cv2.imwrite(os.path.join(path, '{}'.format(basename)), out)
 
 
 if __name__ == '__main__':
