@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 plt.switch_backend('agg')
 
 import keras.backend as K
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 
 import segmentation_models as sm
 
@@ -21,23 +21,40 @@ from data_generator import (
 import models
 
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
+                    'segnetsmall',
+
                     'resnet_bnn',
+
+                    'segnet_mobilenet',
+
                     'unet_resnet34', 'unet_resnet50', 'unet_vgg16',
+                    'unet_mobilenetv2',
+
                     'linknet_vgg16', 'linknet_resnet50',
+                    'linknet_mobilenetv2',
+                    'linknet_efficientnetb0',
+                    'linknet_efficientnetb7',
                     'fpn_resnet34', 'fpn_resnet50', 'fpn_vgg16']
 MODEL_MAPPING = {
     'unet': models.unet,
     'fcn_vgg16_32s': models.fcn_vgg16_32s,
     'segnet': models.segnet,
     'resnet': models.resnet,
+    'segnetsmall': models.segnetsmall,
     'resnet_bnn': models.resnet_bnn,
- 
+
+    'segnet_mobilenet': models.segnet_mobilenet,
+
     'unet_resnet34': models.unet_resnet34,
     'unet_resnet50': models.unet_resnet50,
     'unet_vgg16': models.unet_vgg16,
+    'unet_mobilenetv2': models.unet_mobilenetv2,
 
     'linknet_vgg16': models.linknet_vgg16,
     'linknet_resnet50': models.linknet_resnet50,
+    'linknet_mobilenetv2': models.linknet_mobilenetv2,
+    'linknet_efficientnetb0': models.linknet_efficientnetb0,
+    'linknet_efficientnetb7': models.linknet_efficientnetb7,
 
     'fpn_resnet34': models.fpn_resnet34,
     'fpn_resnet50': models.fpn_resnet50,
@@ -52,7 +69,7 @@ BATCH_SIZE = 2
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
-LOSS = models.metrics.dice_coef_loss #'binary_crossentropy'
+LOSS = models.metrics.dice_coef_loss
 #LOSS = 'binary_crossentropy'
 
 PRODUCTION_DATASET = 'data/datasets/deggendorf'
@@ -71,7 +88,7 @@ def cli():
               help='Whether to use generator for feeding data')
 @click.option('--plot', '-p', type=bool, default=True,
               help='Wheter to plot losses and accuracies')
-@click.option('--aug', '-a', type=bool, default=False,
+@click.option('--aug', '-a', type=bool, default=True,
               help='Whether to use data augmentation')
 @click.option('--epochs', '-e', type=int, default=3,
               help='Number of epochs')
@@ -98,9 +115,15 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
     model_checkpoint = ModelCheckpoint(model_out, monitor='val_loss',
                                        verbose=1, save_best_only=True)
     early_stopping = EarlyStopping(monitor='val_loss', patience=int(epochs*0.05))
+    tensorboard = TensorBoard(log_dir='./logs/{0}'.format(model_filename),
+                              histogram_freq=0,
+                              write_graph=True, write_images=True,
+                              update_freq='epoch')
 
     _model = MODEL_MAPPING[model](input_size=INPUT_SIZE,
                                   loss=LOSS)
+
+    _model.summary()
 
     if weights != '':
         _model.load_weights(weights)
@@ -118,7 +141,7 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
             data_gen_args = dict(fill_mode='constant',
                                  #zoom_range=0.05,
                                  rotation_range=5,
-                                 vertical_flip=True,
+                                 #vertical_flip=True,
                                  horizontal_flip=True)
 
         my_data_gen = train_generator(BATCH_SIZE, train_dir,
@@ -139,7 +162,8 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
         history = _model.fit_generator(my_data_gen,
                                        steps_per_epoch=steps_per_epoch,
                                        epochs=epochs,
-                                       callbacks=[model_checkpoint, early_stopping],
+                                       callbacks=[model_checkpoint, early_stopping,
+                                                  tensorboard],
                                        validation_data=(X_val, Y_val))
     # mainly just for testing purposes
     else:
@@ -151,7 +175,8 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
         history = _model.fit(X_train, Y_train,
                              epochs=epochs,
                              batch_size=BATCH_SIZE,
-                             callbacks=[model_checkpoint, early_stopping],
+                             callbacks=[model_checkpoint, early_stopping,
+                                        tensorboard],
                              validation_split=0.1)
 
     if plot:
@@ -178,14 +203,19 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
               help='Whether to convert rgb image to hsv')
 def evaluate(model, path, hsv):
     _model = MODEL_MAPPING[model]
-    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE,
-                    loss=LOSS)
+    _model = _model(input_size=INPUT_SIZE, loss=LOSS)
+
+    if (path):
+        _model.load_weights(path)
+
+    # _model.summary()
+
     eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
                               img_target_size=IMG_TARGET_SIZE,
                               tohsv=hsv)
-
     loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
                                                 verbose=0)
+
     print('=======================================')
     print('Evaluation results')
     print('Loss: {}, Acc: {}, Mean IoU: {}'.format(loss, acc, miou))
@@ -200,8 +230,11 @@ def evaluate(model, path, hsv):
               help='Whether to convert rgb image to hsv')
 def predict(model, path, hsv):
     _model = MODEL_MAPPING[model]
-    _model = _model(pretrained_weights=path, input_size=INPUT_SIZE,
-                    loss=LOSS)
+    _model = _model(input_size=INPUT_SIZE, loss=LOSS)
+
+    if (path):
+        _model.load_weights(path)
+
     test_gen = test_data_generator('data/test', 'image',
                                    img_target_size=IMG_TARGET_SIZE,
                                    tohsv=hsv)
@@ -209,7 +242,7 @@ def predict(model, path, hsv):
                                        verbose=1)
 
     save_predicted_images('data/predictions', 'data/test/image', results,
-                          IMG_TARGET_SIZE)
+                          RESIZE_TO)
 
 
 cli.add_command(train)

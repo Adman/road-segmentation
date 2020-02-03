@@ -97,7 +97,7 @@ def up_conv_block(input_tensor, kernel_size, filters, stage, block, strides=(1, 
 
 # taken from
 # https://github.com/danielelic/deep-segmentation/blob/master/train_resnet.py
-def resnet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
+def resnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     f = 16
     bn_axis = 3
     classes = 1
@@ -152,13 +152,9 @@ def resnet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_cross
     x = Conv2D(classes, (3, 3), padding='same', activation='sigmoid', name='convLast')(x)
 
     model = Model(input, x, name='resnetUnet')
-    model.compile(optimizer=Adam(lr=3e-4), loss=loss,
+    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
                   metrics=['accuracy', mean_iou])
 
-    # model.summary()
-
-    larq.models.summary(model)
-    if (pretrained_weights):
-        model.load_weights(pretrained_weights)
+    # larq.models.summary(model)
 
     return model

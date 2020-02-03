@@ -10,7 +10,7 @@ from .metrics import mean_iou
 
 # taken from
 # https://github.com/zhixuhao/unet/blob/master/model.py#L13
-def unet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
+def unet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     inputs = Input(input_size)
     conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
     conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
@@ -57,9 +57,4 @@ def unet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossen
     model.compile(optimizer=Adam(lr=1e-4), loss=loss,
                   metrics=['accuracy', mean_iou])
     
-    #model.summary()
-
-    if (pretrained_weights):
-    	model.load_weights(pretrained_weights)
-
     return model

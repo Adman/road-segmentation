@@ -1,14 +1,13 @@
 from keras.models import Model, Sequential
-from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D
+from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, ZeroPadding2D
 from keras.layers.core import Activation, Reshape
-from keras.layers.convolutional import Convolution2D
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import *
 
 from .metrics import mean_iou
 
 
-def segnet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_crossentropy'):
+def segnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     kernel = 3
 
     encoding_layers = [
@@ -125,9 +124,61 @@ def segnet(pretrained_weights=None, input_size=(480, 640, 3), loss='binary_cross
     autoencoder.add(Activation('sigmoid'))
     autoencoder.compile(optimizer=SGD(lr=0.001, momentum=0.9, decay=0.0005, nesterov=False),
                         loss=loss, metrics=['accuracy', mean_iou])
-    # autoencoder.summary()
-
-    if (pretrained_weights):
-        autoencoder.load_weights(pretrained_weights)
 
     return autoencoder
+
+
+# taken from
+# https://github.com/BBuf/Keras-Semantic-Segmentation/blob/master/Models/Segnet.py
+def segnetsmall(input_size=(480, 640, 3), loss='binary_crossentropy'):
+    n_classes = 1
+    img_input = Input(input_size)
+
+    # encoder
+    x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv1')(img_input)
+    x = (BatchNormalization())(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
+
+    x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
+    x = (BatchNormalization())(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
+
+    x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
+    x = (BatchNormalization())(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
+
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
+    x = (BatchNormalization())(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
+
+    #decoder
+    o = Conv2D(512, (3, 3), activation='relu', padding='same')(x)
+    o = (BatchNormalization())(o)
+
+    o = (UpSampling2D((2, 2)))(o)
+    o = (ZeroPadding2D((1, 1)))(o)
+    o = (Conv2D(256, (3, 3), padding='valid'))(o)
+    o = (BatchNormalization())(o)
+
+    o = (UpSampling2D((2, 2)))(o)
+    o = (ZeroPadding2D((1, 1)))(o)
+    o = (Conv2D(128, (3, 3), padding='valid'))(o)
+    o = (BatchNormalization())(o)
+
+    o = (UpSampling2D((2, 2)))(o)
+    o = (ZeroPadding2D((1, 1)))(o)
+    o = (Conv2D(64, (3, 3), padding='valid'))(o)
+    o = (BatchNormalization())(o)
+
+    o = (UpSampling2D((2, 2)))(o)
+    o = (ZeroPadding2D((1, 1)))(o)
+    o = (Conv2D(32, (3, 3), padding='valid'))(o)
+    o = (BatchNormalization())(o)
+
+    o = Conv2D(n_classes, (3, 3), padding='same', activation='sigmoid')(o)
+    model = Model(img_input, o, name='segnetSmall')
+
+    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
+                  metrics=['accuracy', mean_iou])
+
+    return model
