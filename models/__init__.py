@@ -1,7 +1,7 @@
 from .unet import unet
 from .fcn_vgg16_32s import fcn_vgg16_32s
 from .segnet import segnet, segnetsmall
-from .resnet import resnet
+from .resnet import resnet, resnetsmall
 from .resnet_bnn import resnet_bnn
 
 from .segnet_mobilenet import segnet_mobilenet

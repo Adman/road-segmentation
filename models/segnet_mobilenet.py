@@ -33,29 +33,6 @@ def depthwise_conv_block(inputs, pointwise_conv_filters, alpha, depth_multiplier
     x = BatchNormalization(axis=3, name='conv_pw_%d_bn' % block_id)(x)
     return Activation(relu6, name='conv_pw_%d_relu' % block_id)(x)
 
-def crop(o1, o2, i):
-    o_shape2 = Model(i, o2).output_shape
-    outputHeight2 = o_shape2[1]
-    outputWidth2 = o_shape2[2]
-
-    o_shape1 = Model(i, o1).output_shape
-    outputHeight1 = o_shape1[1]
-    outputWidth1 = o_shape1[2]
-
-    cx = abs(outputWidth1 - outputWidth2)
-    cy = abs(outputHeight2 - outputHeight1)
-
-    if outputWidth1 > outputWidth2:
-        o1 = Cropping2D(cropping=((0, 0), (0, cx)))(o1)
-    else:
-        o2 = Cropping2D(cropping=((0, 0), (0, cx)))(o2)
-
-    if outputHeight1 > outputHeight2:
-        o1 = Cropping2D(cropping=((0, cy), (0, 0)))(o1)
-    else:
-        o2 = Cropping2D(cropping=((0, cy), (0, 0)))(o2)
-
-    return o1, o2
 
 def segnet_mobilenet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     input_width = input_size[1]

@@ -4,4 +4,5 @@ Keras~=2.2.4
 tensorflow-gpu~=1.14.0
 opencv-python~=4.1.0.25
 segmentation-models~=1.0.0
-imgaug~=0.2.9
+imgaug~=0.4.0
+imagecorruptions~=1.1.0

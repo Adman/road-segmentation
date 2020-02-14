@@ -21,7 +21,7 @@ from data_generator import (
 import models
 
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
-                    'segnetsmall',
+                    'segnetsmall', 'resnetsmall',
 
                     'resnet_bnn',
 
@@ -41,6 +41,7 @@ MODEL_MAPPING = {
     'segnet': models.segnet,
     'resnet': models.resnet,
     'segnetsmall': models.segnetsmall,
+    'resnetsmall': models.resnetsmall,
     'resnet_bnn': models.resnet_bnn,
 
     'segnet_mobilenet': models.segnet_mobilenet,
@@ -69,8 +70,8 @@ BATCH_SIZE = 2
 N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
 N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
 N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
-LOSS = models.metrics.dice_coef_loss
-#LOSS = 'binary_crossentropy'
+#LOSS = models.metrics.dice_coef_loss
+LOSS = 'binary_crossentropy'
 
 PRODUCTION_DATASET = 'data/datasets/deggendorf'
 TRAIN_DIRECTORY = 'data/train'
@@ -153,7 +154,7 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
                                       aug=aug)
 
         X_val, Y_val = load_data_memory(['data/val'], 'image', 'masks',
-                                        resize=RESIZE_TO, tohsv=hsv)
+                                        resize=RESIZE_TO, tohsv=hsv, aug=aug)
 
         steps_per_epoch = N_TRAIN_SAMPLES // BATCH_SIZE
         if aug:
@@ -212,8 +213,8 @@ def evaluate(model, path, hsv):
 
     eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
                               img_target_size=IMG_TARGET_SIZE,
-                              tohsv=hsv)
-    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=N_TEST_SAMPLES,
+                              tohsv=hsv, aug=True)
+    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=3*N_TEST_SAMPLES,
                                                 verbose=0)
 
     print('=======================================')

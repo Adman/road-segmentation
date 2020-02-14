@@ -97,8 +97,7 @@ def up_conv_block(input_tensor, kernel_size, filters, stage, block, strides=(1, 
 
 # taken from
 # https://github.com/danielelic/deep-segmentation/blob/master/train_resnet.py
-def resnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
-    f = 16
+def resnet(input_size=(480, 640, 3), loss='binary_crossentropy', f=16):
     bn_axis = 3
     classes = 1
 
@@ -133,7 +132,6 @@ def resnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
 
     x = up_conv_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='a')
     x = identity_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='b')
-
     x = identity_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='f')
 
     x = concatenate([x, x3], axis=bn_axis)
@@ -158,3 +156,7 @@ def resnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     # larq.models.summary(model)
 
     return model
+
+
+def resnetsmall(input_size=(480, 640, 3), loss='binary_crossentropy'):
+    return resnet(input_size=input_size, loss=loss, f=8)
