@@ -6,10 +6,14 @@ import click
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
 
+import numpy as np
+
 import keras.backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from keras.models import Model
 
 import segmentation_models as sm
+import matplotlib.pyplot as plt
 
 from data_generator import (
     train_generator,
@@ -17,6 +21,7 @@ from data_generator import (
     eval_generator,
     save_predicted_images,
     load_data_memory,
+    load_single_image,
 )
 import models
 
@@ -246,9 +251,50 @@ def predict(model, path, hsv):
                           RESIZE_TO)
 
 
+@click.command(help='Vizualize activations of given model')
+@click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
+              required=True, help='Model to vizualize layers from')
+@click.option('--path', '-p', help='Path to saved model')
+@click.option('--hsv', '-h', type=bool, default=False,
+              help='Whether to convert rgb image to hsv')
+@click.option('--img', '-i', help='Path to image')
+@click.option('--layer', '-l', type=int, help='Which layer\' activations to visualize')
+def vizualize(model, path, hsv, img, layer):
+    _model = MODEL_MAPPING[model]
+    _model = _model(input_size=INPUT_SIZE, loss=LOSS)
+
+    if (path):
+        _model.load_weights(path)
+
+    output_ids = [layer]
+    outputs = [_model.layers[i].output for i in output_ids]
+
+    _model = Model(inputs=_model.inputs, outputs=outputs)
+
+    i = load_single_image(img)
+    i = np.expand_dims(i, axis=0)
+    feature_maps = _model.predict(i)
+
+    plt.switch_backend('TkAgg')
+    height = 4 #8
+    width = 8 #16
+    for fmap in feature_maps:
+        ix = 1
+        for _ in range(height):
+            for _ in range(width):
+                ax = plt.subplot(height, width, ix)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                plt.imshow(fmap[:, :, ix-1], cmap='gray')
+                ix += 1
+        plt.show()
+
+
+
 cli.add_command(train)
 cli.add_command(evaluate)
 cli.add_command(predict)
+cli.add_command(vizualize)
 
 
 if __name__ == '__main__':

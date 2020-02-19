@@ -165,6 +165,18 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
     return (X, Y)
 
 
+def load_single_image(path, resize=(640, 480), tohsv=False):
+    colorspace = 'rgb'
+    if tohsv:
+        colorspace = 'hsv'
+
+    img = cv2.imread(path).astype(np.float32)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, resize)
+    img = normalize_image(img, colorspace=colorspace)
+    return img
+
+
 def save_predicted_images(path, test_image_folder, predictions, resize_to):
     os.makedirs(path, exist_ok=True)
     test_imgs = sorted(glob.glob(os.path.join(test_image_folder, '*.png')))
