@@ -4,6 +4,8 @@ from .segnet import segnet, segnetsmall
 from .resnet import resnet, resnetsmall
 from .resnet_bnn import resnet_bnn
 
+from .shuffleseg import shuffleseg
+
 from .segnet_mobilenet import segnet_mobilenet
 
 from .unet_with_backbone import unet_resnet34, unet_resnet50, unet_vgg16, unet_mobilenetv2

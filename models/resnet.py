@@ -1,7 +1,14 @@
 from keras import backend as K
 from keras import layers
-from keras.layers import Activation
-from keras.layers import Input, Conv2D, ZeroPadding2D, MaxPooling2D, UpSampling2D, concatenate
+from keras.layers import (
+    Activation,
+    Input,
+    Conv2D,
+    ZeroPadding2D,
+    MaxPooling2D,
+    UpSampling2D,
+    concatenate,
+)
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.optimizers import Adam

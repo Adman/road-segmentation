@@ -28,6 +28,8 @@ import models
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
                     'segnetsmall', 'resnetsmall',
 
+                    'shuffleseg',
+
                     'resnet_bnn',
 
                     'segnet_mobilenet',
@@ -49,6 +51,7 @@ MODEL_MAPPING = {
     'resnetsmall': models.resnetsmall,
     'resnet_bnn': models.resnet_bnn,
 
+    'shuffleseg': models.shuffleseg,
     'segnet_mobilenet': models.segnet_mobilenet,
 
     'unet_resnet34': models.unet_resnet34,
@@ -251,7 +254,7 @@ def predict(model, path, hsv):
                           RESIZE_TO)
 
 
-@click.command(help='Vizualize activations of given model')
+@click.command(help='Vizualize activations of given model at specific layer')
 @click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
               required=True, help='Model to vizualize layers from')
 @click.option('--path', '-p', help='Path to saved model')
