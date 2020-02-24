@@ -5,6 +5,7 @@ from .resnet import resnet, resnetsmall
 from .resnet_bnn import resnet_bnn
 
 from .shuffleseg import shuffleseg
+from .shufflenetv2 import shufflenetv2
 
 from .segnet_mobilenet import segnet_mobilenet
 

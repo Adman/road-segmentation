@@ -28,7 +28,7 @@ import models
 AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
                     'segnetsmall', 'resnetsmall',
 
-                    'shuffleseg',
+                    'shuffleseg', 'shufflenetv2',
 
                     'resnet_bnn',
 
@@ -52,6 +52,7 @@ MODEL_MAPPING = {
     'resnet_bnn': models.resnet_bnn,
 
     'shuffleseg': models.shuffleseg,
+    'shufflenetv2': models.shufflenetv2,
     'segnet_mobilenet': models.segnet_mobilenet,
 
     'unet_resnet34': models.unet_resnet34,
