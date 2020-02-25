@@ -25,23 +25,7 @@ from data_generator import (
 )
 import models
 
-AVAILABLE_MODELS = ['unet', 'fcn_vgg16_32s', 'segnet', 'resnet',
-                    'segnetsmall', 'resnetsmall',
 
-                    'shuffleseg', 'shufflenetv2',
-
-                    'resnet_bnn',
-
-                    'segnet_mobilenet',
-
-                    'unet_resnet34', 'unet_resnet50', 'unet_vgg16',
-                    'unet_mobilenetv2',
-
-                    'linknet_vgg16', 'linknet_resnet50',
-                    'linknet_mobilenetv2',
-                    'linknet_efficientnetb0',
-                    'linknet_efficientnetb7',
-                    'fpn_resnet34', 'fpn_resnet50', 'fpn_vgg16']
 MODEL_MAPPING = {
     'unet': models.unet,
     'fcn_vgg16_32s': models.fcn_vgg16_32s,
@@ -71,6 +55,7 @@ MODEL_MAPPING = {
     'fpn_vgg16': models.fpn_vgg16
 }
 
+AVAILABLE_MODELS = list(MODEL_MAPPING.keys())
 
 IMG_TARGET_SIZE = (480, 640)
 RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
