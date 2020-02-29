@@ -115,7 +115,7 @@ def _shufflenetv2(inp):
     return x
 
 
-def deeplabv3(x):
+def deeplabv3plus(x):
     bn_axis = -1
     # dense prediction cell
     start = Conv2D(128, 3, dilation_rate=(1, 6), padding='same', name='dpc_start')(x)
@@ -151,7 +151,7 @@ def shufflenetv2(input_size=(480, 640, 3), loss='binary_crossentropy'):
     inp = Input(input_size)
 
     x = _shufflenetv2(inp)
-    o = deeplabv3(x)
+    o = deeplabv3plus(x)
 
     # note: not using dropout here
     o = UpSampling2D(size=(16, 16), interpolation='bilinear')(o)

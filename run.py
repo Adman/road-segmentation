@@ -37,6 +37,8 @@ MODEL_MAPPING = {
 
     'shuffleseg': models.shuffleseg,
     'shufflenetv2': models.shufflenetv2,
+    'mobilenetv2': models.mobilenetv2,
+
     'segnet_mobilenet': models.segnet_mobilenet,
 
     'unet_resnet34': models.unet_resnet34,
