@@ -128,8 +128,6 @@ def segnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     return autoencoder
 
 
-# taken from
-# https://github.com/BBuf/Keras-Semantic-Segmentation/blob/master/Models/Segnet.py
 def segnetsmall(input_size=(480, 640, 3), loss='binary_crossentropy'):
     n_classes = 1
     img_input = Input(input_size)

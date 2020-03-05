@@ -68,6 +68,7 @@ def _mobilenetv2(inp):
                                    addition=(j > 0))
             block_id += 1
 
+    # expensive block
     #x = Conv2D(final_block_channels, 1, use_bias=False, padding='same', name='out_conv')(x)
     #x = BatchNormalization(axis=bn_axis, name='out_batchnorm')(x)
     #x = ReLU(6., name='out_activation')(x)
@@ -85,7 +86,7 @@ def mobilenetv2(input_size=(480, 640, 3), loss='binary_crossentropy'):
     o = UpSampling2D(size=(16, 16), interpolation='bilinear')(o)
     o = Conv2D(1, (3, 3), padding='same', name='conv_final', activation='sigmoid')(o)
 
-    model = Model(inp, o, name='shufflenetv2')
+    model = Model(inp, o, name='mobilenetv2')
     model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
                   metrics=['accuracy', mean_iou])
 
