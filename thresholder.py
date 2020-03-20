@@ -20,6 +20,10 @@ def test_thresholds():
         if m == 'x':
             break
 
+        graph_name = input('Enter name displayed in graph [{}]: '.format(m))
+        if not graph_name:
+            graph_name = m
+
         if m not in AVAILABLE_MODELS:
             print('Unknown model')
             continue
@@ -30,7 +34,12 @@ def test_thresholds():
             continue
 
         model = MODEL_MAPPING[m](input_size=INPUT_SIZE, loss=LOSS)
-        model.load_weights(w)
+
+        try:
+            model.load_weights(w)
+        except ValueError:
+            print('Failed to load weights')
+            continue
 
         y_pred = []
 
@@ -64,7 +73,7 @@ def test_thresholds():
             ious.append((iou / X.shape[0]) * 100)
             accs.append((okpixels / allpixels) * 100)
 
-        results.append({'name': m, 'acc': accs, 'iou': ious,
+        results.append({'name': graph_name, 'acc': accs, 'iou': ious,
                         'auc': auc, 'fpr': fpr, 'tpr': tpr})
 
     plt.figure()

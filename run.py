@@ -38,7 +38,8 @@ MODEL_MAPPING = {
     'shuffleseg': models.shuffleseg,
     'shufflenetv2': models.shufflenetv2,
     'mobilenetv2': models.mobilenetv2,
-    'mobilenetv3': models.mobilenetv3,
+    'mobilenetv3large': models.mobilenetv3large,
+    'mobilenetv3small': models.mobilenetv3small,
 
     'segnet_mobilenet': models.segnet_mobilenet,
 

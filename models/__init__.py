@@ -8,7 +8,7 @@ from .shuffleseg import shuffleseg
 from .shufflenetv2 import shufflenetv2
 
 from .mobilenetv2 import mobilenetv2
-from .mobilenetv3 import mobilenetv3
+from .mobilenetv3 import mobilenetv3large, mobilenetv3small
 
 from .segnet_mobilenet import segnet_mobilenet
 

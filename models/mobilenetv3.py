@@ -186,9 +186,7 @@ def lite_raspp(model, version):
     return model.input, x
 
 
-def mobilenetv3(input_size=(480, 640, 3), loss='binary_crossentropy'):
-    version = 'small'
-    alpha = 0.75
+def mobilenetv3(input_size=(480, 640, 3), loss='binary_crossentropy', version='large', alpha=1.0):
     inp = Input(input_size)
 
     x = _mobilenetv3(inp, version, alpha)
@@ -206,8 +204,18 @@ def mobilenetv3(input_size=(480, 640, 3), loss='binary_crossentropy'):
     # o = UpSampling2D(size=(32, 32), name='lraspp/finalupsample')(o)
     # o = Conv2D(1, 1, padding='same', activation='sigmoid')(o)
 
-    model = Model(inp, o, name='mobilenetv3')
+    model = Model(inp, o, name='mobilenetv3{0}'.format(version))
     model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
                   metrics=['accuracy', mean_iou])
 
     return model
+
+
+def mobilenetv3large(input_size=(480, 640, 3), loss='binary_crossentropy'):
+    alpha = 0.25
+    return mobilenetv3(input_size=input_size, loss=loss, version='large', alpha=alpha)
+
+
+def mobilenetv3small(input_size=(480, 640, 3), loss='binary_crossentropy'):
+    alpha = 0.75
+    return mobilenetv3(input_size=input_size, loss=loss, version='small', alpha=alpha)

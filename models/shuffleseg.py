@@ -100,7 +100,7 @@ def stage(x, channel_map, bottleneck_ratio, repeat=1, groups=1, stage=1):
 def shufflenet(inp):
     shuffle_units = [3, 7, 3]
     out_dim_stage_two = {1: 144, 2: 200, 3: 240, 4: 272, 8: 384}
-    groups = 1
+    groups = 2
     scale_factor = 1.0
     bottleneck_ratio = 0.25
 

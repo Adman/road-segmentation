@@ -93,7 +93,7 @@ def _shufflenetv2(inp):
     shuffle_units = [3, 7, 3]
     out_dim_stage_two = {0.5: 48, 1: 116, 1.5: 176, 2: 244}
     scale_factor = 1.0
-    bottleneck_ratio = 1
+    bottleneck_ratio = 0.5
 
     exp = np.insert(np.arange(len(shuffle_units), dtype=np.float32), 0, 0)
     out_channels_in_stage = 2**exp

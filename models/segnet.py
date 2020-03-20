@@ -132,45 +132,50 @@ def segnetsmall(input_size=(480, 640, 3), loss='binary_crossentropy'):
     n_classes = 1
     img_input = Input(input_size)
 
+    # filters = [64, 128, 256, 256, 256, 256, 128, 64, 32]
+    # filters = [32, 64,  128, 128, 256, 128, 128, 64, 32]
+    # filters = [32, 32, 64, 64, 128, 128, 64, 32, 32]
+    filters = [32, 32, 64, 64, 64, 64, 64, 32, 32]
+
     # encoder
-    x = Conv2D(32, (3, 3), activation='relu', padding='same', name='block1_conv1')(img_input)
+    x = Conv2D(filters[0], (3, 3), activation='relu', padding='same', name='block1_conv1')(img_input)
     x = (BatchNormalization())(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
 
-    x = Conv2D(32, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
+    x = Conv2D(filters[1], (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
     x = (BatchNormalization())(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
 
-    x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
+    x = Conv2D(filters[2], (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
     x = (BatchNormalization())(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
 
-    x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
+    x = Conv2D(filters[3], (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
     x = (BatchNormalization())(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
 
     #decoder
-    o = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    o = Conv2D(filters[4], (3, 3), activation='relu', padding='same')(x)
     o = (BatchNormalization())(o)
 
     o = (UpSampling2D((2, 2)))(o)
     o = (ZeroPadding2D((1, 1)))(o)
-    o = (Conv2D(64, (3, 3), padding='valid'))(o)
+    o = (Conv2D(filters[5], (3, 3), padding='valid'))(o)
     o = (BatchNormalization())(o)
 
     o = (UpSampling2D((2, 2)))(o)
     o = (ZeroPadding2D((1, 1)))(o)
-    o = (Conv2D(64, (3, 3), padding='valid'))(o)
+    o = (Conv2D(filters[6], (3, 3), padding='valid'))(o)
     o = (BatchNormalization())(o)
 
     o = (UpSampling2D((2, 2)))(o)
     o = (ZeroPadding2D((1, 1)))(o)
-    o = (Conv2D(32, (3, 3), padding='valid'))(o)
+    o = (Conv2D(filters[7], (3, 3), padding='valid'))(o)
     o = (BatchNormalization())(o)
 
     o = (UpSampling2D((2, 2)))(o)
     o = (ZeroPadding2D((1, 1)))(o)
-    o = (Conv2D(32, (3, 3), padding='valid'))(o)
+    o = (Conv2D(filters[8], (3, 3), padding='valid'))(o)
     o = (BatchNormalization())(o)
 
     o = Conv2D(n_classes, (3, 3), padding='same', activation='sigmoid')(o)
