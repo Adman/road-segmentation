@@ -142,6 +142,10 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
                 img_aug = normalize_image(img_aug, colorspace=colorspace)
                 X.append(img_aug)
 
+                # img_aug = aug_fogger.augment_images(img)
+                # img_aug = normalize_image(img_aug, colorspace=colorspace)
+                # X.append(img_aug)
+
                 img_aug = aug_brightness.augment_image(img.astype(np.uint8))
                 img_aug = normalize_image(img_aug, colorspace=colorspace)
                 X.append(img_aug)
@@ -158,6 +162,7 @@ def load_data_memory(train_paths, image_folder, mask_folder, resize=(640, 480),
 
             if aug:
                 Y.append(mask)
+                # Y.append(mask)
                 Y.append(mask)
 
     X = np.array(X)
