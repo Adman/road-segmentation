@@ -10,7 +10,6 @@ import numpy as np
 
 import keras.backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
-from keras.models import Model
 
 import segmentation_models as sm
 import matplotlib.pyplot as plt
@@ -65,14 +64,16 @@ IMG_TARGET_SIZE = (480, 640)
 RESIZE_TO = tuple(reversed(IMG_TARGET_SIZE))
 INPUT_SIZE = IMG_TARGET_SIZE + (3,)
 BATCH_SIZE = 2
-N_TRAIN_SAMPLES = len(glob.glob('data/train/image/*.png', recursive=False))
-N_VAL_SAMPLES = len(glob.glob('data/val/image/*.png', recursive=False))
-N_TEST_SAMPLES = len(glob.glob('data/test/image/*.png', recursive=False))
 #LOSS = models.metrics.dice_coef_loss
 LOSS = 'binary_crossentropy'
 
+TRAIN_DIR = 'data/train'
+VAL_DIR = 'data/val'
+TEST_DIR = 'data/test'
+N_TRAIN_SAMPLES = len(glob.glob(os.path.join(TRAIN_DIR, 'image/*.png'), recursive=False))
+N_VAL_SAMPLES = len(glob.glob(os.path.join(VAL_DIR, 'image/*.png'), recursive=False))
+N_TEST_SAMPLES = len(glob.glob(os.path.join(TEST_DIR, 'image/*.png'), recursive=False))
 PRODUCTION_DATASET = 'data/datasets/deggendorf'
-TRAIN_DIRECTORY = 'data/train'
 
 
 @click.group()
@@ -98,17 +99,16 @@ def cli():
 @click.option('--production', type=bool, default=False,
               help='Whether to train on entire dataset for production')
 def train(model, gen, plot, aug, epochs, hsv, weights, production):
-    global N_TRAIN_SAMPLES
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
     model_filename = '{}_{}_{}_{}_{}x{}_{}'.format(model,
-                                          'gen' if gen else 'nogen',
-                                          'aug' if aug else 'noaug',
-                                          'hsv' if hsv else 'rgb',
-                                          IMG_TARGET_SIZE[1],
-                                          IMG_TARGET_SIZE[0],
-                                          now_str)
+                                                   'gen' if gen else 'nogen',
+                                                   'aug' if aug else 'noaug',
+                                                   'hsv' if hsv else 'rgb',
+                                                   IMG_TARGET_SIZE[1],
+                                                   IMG_TARGET_SIZE[0],
+                                                   now_str)
 
     model_out = 'trained_models/{}.hdf5'.format(model_filename)
     model_checkpoint = ModelCheckpoint(model_out, monitor='val_loss',
@@ -119,18 +119,18 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
                               write_graph=True, write_images=True,
                               update_freq='epoch')
 
-    _model = MODEL_MAPPING[model](input_size=INPUT_SIZE,
-                                  loss=LOSS)
+    _model = MODEL_MAPPING[model](input_size=INPUT_SIZE, loss=LOSS)
 
     _model.summary()
 
     if weights != '':
         _model.load_weights(weights)
 
-    train_dir = TRAIN_DIRECTORY
+    train_dir = TRAIN_DIR
+    n_train_samples = N_TRAIN_SAMPLES
     if production:
         train_dir = PRODUCTION_DATASET
-        N_TRAIN_SAMPLES = len(glob.glob(os.path.join(train_dir,
+        n_train_samples = len(glob.glob(os.path.join(train_dir,
                                                      'image/*.png'),
                                         recursive=False))
 
@@ -151,10 +151,10 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
                                       tohsv=hsv,
                                       aug=aug)
 
-        X_val, Y_val = load_data_memory(['data/val'], 'image', 'masks',
+        X_val, Y_val = load_data_memory([VAL_DIR], 'image', 'masks',
                                         resize=RESIZE_TO, tohsv=hsv, aug=aug)
 
-        steps_per_epoch = N_TRAIN_SAMPLES // BATCH_SIZE
+        steps_per_epoch = n_train_samples // BATCH_SIZE
         if aug:
             steps_per_epoch *= 3
 
@@ -166,7 +166,7 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
                                        validation_data=(X_val, Y_val))
     # mainly just for testing purposes
     else:
-        X_train, Y_train = load_data_memory(['data/train', 'data/val'],
+        X_train, Y_train = load_data_memory([TRAIN_DIR, VAL_DIR],
                                             'image', 'masks',
                                             resize=RESIZE_TO,
                                             tohsv=hsv)
@@ -209,7 +209,7 @@ def evaluate(model, path, hsv):
 
     # _model.summary()
 
-    eval_gen = eval_generator(1, 'data/test', 'image', 'masks',
+    eval_gen = eval_generator(1, TEST_DIR, 'image', 'masks',
                               img_target_size=IMG_TARGET_SIZE,
                               tohsv=hsv, aug=True)
     loss, acc, miou = _model.evaluate_generator(eval_gen, steps=3*N_TEST_SAMPLES,
@@ -234,7 +234,7 @@ def predict(model, path, hsv):
     if (path):
         _model.load_weights(path)
 
-    test_gen = test_data_generator('data/test', 'image',
+    test_gen = test_data_generator(TEST_DIR, 'image',
                                    img_target_size=IMG_TARGET_SIZE,
                                    tohsv=hsv)
     results = _model.predict_generator(test_gen, steps=N_TEST_SAMPLES,
