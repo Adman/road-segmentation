@@ -7,6 +7,8 @@ neural network models for semantic segmentation task.
 
 The best way to set the environment up is to install Anaconda or Miniconda which
 should manage the installation of CUDA for you.
+We use **python3.6**.
+
 After creating and activating conda virtual environment, install dependencies by running
 
 ```bash
