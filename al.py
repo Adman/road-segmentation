@@ -6,10 +6,13 @@ import shutil
 
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 
+from matplotlib import pyplot as plt
+plt.switch_backend('agg')
+
 from alutils import (
     strategy_random,
-
-    stopping_nostop,    
+    stopping_nostop,
+    epochs_constant
 )
 
 from run import (
@@ -35,7 +38,7 @@ ACTIVE_MASK_DIR = os.path.join(ACTIVE_DIR, 'masks')
 
 INIT_PICK = 30
 TRAIN_PICK = 10
-EPOCHS_PER_ROUND = 3
+EPOCHS_PER_ROUND_CONSTANT = 3
 
 
 def pick_copy_images(images, k=1, strategy=strategy_random, **kwargs):
@@ -56,6 +59,29 @@ def pick_copy_images(images, k=1, strategy=strategy_random, **kwargs):
     return imgs
 
 
+def plot_histories(histories, model_filename):
+    tloss, vloss, vacc, viou = [], [], [], []
+    for h in histories:
+        tloss.extend(h.history['loss'])
+        vloss.extend(h.history['val_loss'])
+        vacc.extend(h.history['val_acc'])
+        viou.extend(h.history['val_mean_iou'])
+
+    plt.figure()
+    plt.plot(tloss, label='train loss')
+    plt.plot(vloss, label='validation loss')
+    plt.xlabel('Epoch')
+    plt.legend(loc='best')
+    plt.savefig('plots/loss_{}.png'.format(model_filename))
+
+    plt.figure()
+    plt.plot(vacc, label='validation accuracy')
+    plt.plot(viou, label='validation iou')
+    plt.xlabel('Epoch')
+    plt.legend(loc='best')
+    plt.savefig('plots/acc_{}.png'.format(model_filename))
+
+
 @click.group()
 def cli():
     pass
@@ -67,8 +93,13 @@ STRATEGY_MAPPING = {
 STOPPINGS_MAPPING = {
     'nostop': stopping_nostop
 }
+EPOCHS_MAPPING = {
+    'constant': epochs_constant
+}
+
 AVAILABLE_STRATEGIES = list(STRATEGY_MAPPING.keys())
 AVAILABLE_STOPPINGS = list(STOPPINGS_MAPPING.keys())
+AVAILABLE_EPOCHS = list(EPOCHS_MAPPING.keys())
 
 
 @click.command(help='Run active learning simulation')
@@ -78,7 +109,9 @@ AVAILABLE_STOPPINGS = list(STOPPINGS_MAPPING.keys())
               default='random', help='Strategy to pick images into training')
 @click.option('--stopping', '-s', type=click.Choice(AVAILABLE_STOPPINGS),
               default='nostop', help='Method which stops training')
-def simulate(model, pick, stopping):
+@click.option('--epochs', '-e', type=click.Choice(AVAILABLE_EPOCHS),
+              default='constant', help='Method to choose number epochs for round')
+def simulate(model, pick, stopping, epochs):
     date = datetime.datetime.now()
     now_str = date.strftime('%Y-%m-%d-%H%M%S')
 
@@ -86,13 +119,15 @@ def simulate(model, pick, stopping):
     model_filename = '{}_i{}xp{}xe{}_{}_{}_{}'.format(model,
                                                       INIT_PICK,
                                                       TRAIN_PICK,
-                                                      EPOCHS_PER_ROUND,
+                                                      epochs,
                                                       pick,
                                                       stopping,
                                                       now_str)
 
     model_out = 'trained_active_models/{}.hdf5'.format(model_filename)
     # TODO: test EarlyStopping
+    model_checkpoint = ModelCheckpoint(model_out, monitor='val_loss',
+                                       verbose=1, save_best_only=True)
     tensorboard = TensorBoard(log_dir='./logs/{0}'.format(model_filename),
                               histogram_freq=0,
                               write_graph=True, write_images=True,
@@ -102,6 +137,7 @@ def simulate(model, pick, stopping):
 
     pick_strategy = STRATEGY_MAPPING[pick]
     stop_strategy = STOPPINGS_MAPPING[stopping]
+    epoch_strategy = EPOCHS_MAPPING[epochs]
 
     data_gen_args = dict(fill_mode='constant',
                          #zoom_range=0.05,
@@ -111,6 +147,7 @@ def simulate(model, pick, stopping):
 
     X_val, Y_val = load_data_memory([VAL_DIR], 'image', 'masks',
                                     resize=RESIZE_TO, aug=True)
+
 
     if not os.path.exists(os.path.join(ACTIVE_DIR, 'image')):
         os.makedirs(os.path.join(ACTIVE_DIR, 'image'))
@@ -127,6 +164,7 @@ def simulate(model, pick, stopping):
                                   augs=data_gen_args)
 
     histories = []
+    train_round = 1
     while True:
         steps_per_epoch = (n_train_samples // BATCH_SIZE) * 3
 
@@ -136,14 +174,18 @@ def simulate(model, pick, stopping):
                                       img_target_size=IMG_TARGET_SIZE,
                                       augs=data_gen_args)
 
-        print('Starting new round with {} images'.format(n_train_samples))
-        history = _model.fit_generator(my_data_gen,
-                                       steps_per_epoch=steps_per_epoch,
-                                       epochs=EPOCHS_PER_ROUND,
-                                       callbacks=[tensorboard],
-                                       validation_data=(X_val, Y_val))           
+        print('Starting round {} with {} images'.format(train_round, n_train_samples))
+
+        train_epoch = 1
+        while epoch_strategy(train_epoch, max_epochs=EPOCHS_PER_ROUND_CONSTANT):
+            history = _model.fit_generator(my_data_gen,
+                                           steps_per_epoch=steps_per_epoch,
+                                           epochs=1,
+                                           callbacks=[model_checkpoint, tensorboard],
+                                           validation_data=(X_val, Y_val))
         
-        histories.append(history)
+            histories.append(history)
+            train_epoch += 1
 
         # pick next
         if not unpicked or stop_strategy(history=histories):
@@ -151,7 +193,9 @@ def simulate(model, pick, stopping):
 
         _ = pick_copy_images(unpicked, TRAIN_PICK)
         n_train_samples += TRAIN_PICK
+        train_round += 1
 
+    plot_histories(histories, model_filename)
 
 
 cli.add_command(simulate)
