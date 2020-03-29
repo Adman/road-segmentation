@@ -244,15 +244,15 @@ def predict(model, path, hsv):
                           RESIZE_TO)
 
 
-@click.command(help='Vizualize activations of given model at specific layer')
+@click.command(help='Visualize activations of given model at specific layer')
 @click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
-              required=True, help='Model to vizualize layers from')
+              required=True, help='Model to visualize layers from')
 @click.option('--path', '-p', help='Path to saved model')
 @click.option('--hsv', '-h', type=bool, default=False,
               help='Whether to convert rgb image to hsv')
 @click.option('--img', '-i', help='Path to image')
 @click.option('--layer', '-l', type=int, help='Which layer\' activations to visualize')
-def vizualize(model, path, hsv, img, layer):
+def visualize(model, path, hsv, img, layer):
     _model = MODEL_MAPPING[model]
     _model = _model(input_size=INPUT_SIZE, loss=LOSS)
 
@@ -287,7 +287,7 @@ def vizualize(model, path, hsv, img, layer):
 cli.add_command(train)
 cli.add_command(evaluate)
 cli.add_command(predict)
-cli.add_command(vizualize)
+cli.add_command(visualize)
 
 
 if __name__ == '__main__':
