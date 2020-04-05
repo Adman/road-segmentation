@@ -194,13 +194,25 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
         plt.savefig('plots/acc_{}.png'.format(model_filename))
 
 
+def do_evaluate(model, hsv):
+    eval_gen = eval_generator(1, TEST_DIR, 'image', 'masks',
+                              img_target_size=IMG_TARGET_SIZE,
+                              tohsv=hsv, aug=True)
+    loss, acc, miou = model.evaluate_generator(eval_gen, steps=3*N_TEST_SAMPLES,
+                                               verbose=0)
+
+    return loss, acc, miou
+
+
 @click.command(help='Evaluate specified model on a test set')
 @click.option('--model', '-m', type=click.Choice(AVAILABLE_MODELS),
               required=True, help='Model to evaluate')
 @click.option('--path', '-p', help='Path to saved model')
 @click.option('--hsv', '-h', type=bool, default=False,
               help='Whether to convert rgb image to hsv')
-def evaluate(model, path, hsv):
+@click.option('--return_only', '-r', type=bool, default=False,
+              help='Whether to only return measured values')
+def evaluate(model, path, hsv, return_only):
     _model = MODEL_MAPPING[model]
     _model = _model(input_size=INPUT_SIZE, loss=LOSS)
 
@@ -209,11 +221,10 @@ def evaluate(model, path, hsv):
 
     # _model.summary()
 
-    eval_gen = eval_generator(1, TEST_DIR, 'image', 'masks',
-                              img_target_size=IMG_TARGET_SIZE,
-                              tohsv=hsv, aug=True)
-    loss, acc, miou = _model.evaluate_generator(eval_gen, steps=3*N_TEST_SAMPLES,
-                                                verbose=0)
+    loss, acc, miou = do_evaluate(_model, hsv)
+
+    if return_only:
+        return loss, acc, miou
 
     print('=======================================')
     print('Evaluation results')
