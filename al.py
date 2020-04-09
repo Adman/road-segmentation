@@ -3,6 +3,7 @@ import click
 import os
 import glob
 import shutil
+from collections import namedtuple
 
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 
@@ -12,6 +13,7 @@ plt.switch_backend('agg')
 from alutils import (
     strategy_random,
     stopping_nostop,
+    stopping_early_val_loss,
     epochs_constant
 )
 
@@ -40,12 +42,14 @@ ACTIVE_MASK_DIR = os.path.join(ACTIVE_DIR, 'masks')
 INIT_PICK = 30
 TRAIN_PICK = 10
 EPOCHS_PER_ROUND_CONSTANT = 3
+STOP_AFTER_EPOCHS_NOT_CHANGED = 20
 
 STRATEGY_MAPPING = {
     'random': strategy_random
 }
 STOPPINGS_MAPPING = {
-    'nostop': stopping_nostop
+    'nostop': stopping_nostop,
+    'early_val_loss': stopping_early_val_loss
 }
 EPOCHS_MAPPING = {
     'constant': epochs_constant
@@ -113,6 +117,9 @@ def cli():
     pass
 
 
+BestScore = namedtuple('BestScore', 'epoch, value')
+
+
 class AlModel:
     def __init__(self, name, model, model_filename):
         self.name = name
@@ -120,6 +127,9 @@ class AlModel:
         self.model_filename = model_filename
         self.finished = False
         self.histories = []
+        self.best_val_loss = BestScore(epoch=None, value=None)
+        self.epochs_trained = 0
+        self.rounds_trained = 0
 
         self.model_out = 'trained_active_models/{}.hdf5'.format(model_filename)
         self.model_checkpoint = ModelCheckpoint(self.model_out, monitor='val_loss',
@@ -135,6 +145,12 @@ class AlModel:
                                      epochs=1,
                                      callbacks=[self.model_checkpoint, self.tensorboard],
                                      validation_data=validation_data)
+        self.epochs_trained += 1
+        val_loss = h.history['val_loss'][0]
+        # check if val loss decreased
+        if self.best_val_loss.epoch is None or self.best_val_loss.value > val_loss:
+            self.best_val_loss = BestScore(epoch=self.epochs_trained, value=val_loss)
+
         self.histories.append(h)
 
     def eval(self):
@@ -157,7 +173,7 @@ class AlModel:
               type=click.Choice(AVAILABLE_MODELS),
               required=True, help='Model to simulate training on')
 @click.option('--pick', '-p', type=click.Choice(AVAILABLE_STRATEGIES),
-              default='random', help='Strategy to pick images into training')
+              default='random', help='Strategy to sample images for training')
 @click.option('--stopping', '-s', type=click.Choice(AVAILABLE_STOPPINGS),
               default='nostop', help='Method which stops training')
 @click.option('--epochs', '-e', type=click.Choice(AVAILABLE_EPOCHS),
@@ -192,9 +208,11 @@ def simulate(model, pick, stopping, epochs):
 
     # prepare models
     model_list = []
+    max_model_name = 0
     for m in model:
         model_filename = '{}_{}'.format(m, suffix)
         _model = MODEL_MAPPING[m](input_size=INPUT_SIZE, loss=LOSS)
+        max_model_name = max(max_model_name, len(m))
 
         model_list.append(AlModel(m, _model, model_filename, ))
 
@@ -211,6 +229,9 @@ def simulate(model, pick, stopping, epochs):
 
         # train model by model
         for m in model_list:
+            if m.finished:
+                continue
+
             train_epoch = 1
             while epoch_strategy(train_epoch, max_epochs=EPOCHS_PER_ROUND_CONSTANT):
                 # refresh generator to prevent unsafe thread error
@@ -223,7 +244,10 @@ def simulate(model, pick, stopping, epochs):
                                 validation_data=(X_val, Y_val))
                 train_epoch += 1
 
-            if not unpicked or stop_strategy(histories=m.histories):
+            train_epoch -= 1
+            m.rounds_trained += 1
+
+            if not unpicked or stop_strategy(model=m, epochs=STOP_AFTER_EPOCHS_NOT_CHANGED):
                 m.finished = True
 
         if all([m.finished for m in model_list]):
@@ -236,16 +260,22 @@ def simulate(model, pick, stopping, epochs):
 
     plot_histories(model_list, suffix)
 
+    # TODO: remove active dir folder
+
     # evaluate models
     print('Starting evaluation on test set...')
     evals = [m.eval() for m in model_list]
 
     print('========== STATS ==========')
-    print('Model\t| loss\t| val_loss\t| acc\t| iou\t| val_acc\t| val_iou\t| test_acc\t| test_iou\t|')
+    print('Model{}| rnd\t| eps\t| loss\t| val_loss\t| acc\t| iou\t' \
+          '| val_acc\t| val_iou\t| test_acc\t| test_iou\t|'.format(' '*(max_model_name - 5)))
     for m, e in zip(model_list, evals):
-        print('{}\t| {:.4f}\t| {:.4f}\t| {:.4f}\t| {:.4f}\t' \
+        print('{}{}| {}\t| {}\t| {:.4f}\t| {:.4f}\t| {:.4f}\t| {:.4f}\t' \
               '| {:.4f}\t| {:.4f}\t' \
               '| {:.4f}\t| {:.4f}\t|'.format(m.name,
+                                             ' '*(max_model_name-len(m.name)),
+                                             m.rounds_trained,
+                                             m.epochs_trained,
                                              m.get_best('loss', greater_better=False),
                                              m.get_best('val_loss', greater_better=False),
                                              m.get_best('acc'),
