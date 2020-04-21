@@ -12,6 +12,8 @@ plt.switch_backend('agg')
 
 from alutils import (
     strategy_random,
+    strategy_avg_entropy,
+    strategy_sum_entropy,
     stopping_nostop,
     stopping_early_val_loss,
     epochs_constant
@@ -40,12 +42,14 @@ ACTIVE_IMAGE_DIR = os.path.join(ACTIVE_DIR, 'image')
 ACTIVE_MASK_DIR = os.path.join(ACTIVE_DIR, 'masks')
 
 INIT_PICK = 30
-TRAIN_PICK = 10
-EPOCHS_PER_ROUND_CONSTANT = 3
-STOP_AFTER_EPOCHS_NOT_CHANGED = 20
+TRAIN_PICK = 15
+EPOCHS_PER_ROUND_CONSTANT = 6
+STOP_AFTER_EPOCHS_NOT_CHANGED = 10
 
 STRATEGY_MAPPING = {
-    'random': strategy_random
+    'random': strategy_random,
+    'avgentropy': strategy_avg_entropy,
+    'sumentropy': strategy_sum_entropy
 }
 STOPPINGS_MAPPING = {
     'nostop': stopping_nostop,
@@ -60,16 +64,17 @@ AVAILABLE_EPOCHS = list(EPOCHS_MAPPING.keys())
 
 NAME_MAPPING = {
     'resnetsmall': 'ResNet-4',
-    'mobilenetv3small': 'MNetV3-S-2'
+    'mobilenetv3small': 'MNetV3-S-2',
+    'mobilenetv2': 'MNetV2-4'
 }
 
 
-def pick_copy_images(images, k=1, strategy=strategy_random, **kwargs):
+def pick_copy_images(images, k=1, strategy=strategy_random, models=None, **kwargs):
     """Pick k images and copy them to ACTIVE_FOLDER.
        Picked images are removed from `images` list.
     """
     k = min(k, len(images))
-    imgs = strategy(images, k, **kwargs)
+    imgs = strategy(images, k, models=models, **kwargs)
 
     for img in imgs:
         iname = os.path.basename(img)
@@ -98,15 +103,17 @@ def plot_histories(model_list, suffix):
 
     plt.figure()
     for m, tl, vl in zip(model_list, tloss, vloss):
-        plt.plot(tl, label='loss {}'.format(NAME_MAPPING[m.name]))
-        plt.plot(vl, label='val loss {}'.format(NAME_MAPPING[m.name]))
+        mapped_name = NAME_MAPPING.get(m.name, m.name)
+        plt.plot(tl, label='loss {}'.format(mapped_name))
+        plt.plot(vl, label='val loss {}'.format(mapped_name))
     plt.xlabel('Epoch')
     plt.legend(loc='best')
     plt.savefig('plots/loss_{}.png'.format(output))
     plt.figure()
     for m, va, vi in zip(model_list, vacc, viou):
-        plt.plot(va, label='val acc {}'.format(NAME_MAPPING[m.name]))
-        plt.plot(vi, label='val iou {}'.format(NAME_MAPPING[m.name]))
+        mapped_name = NAME_MAPPING.get(m.name, m.name)
+        plt.plot(va, label='val acc {}'.format(mapped_name))
+        plt.plot(vi, label='val iou {}'.format(mapped_name))
     plt.xlabel('Epoch')
     plt.legend(loc='best')
     plt.savefig('plots/acc_{}.png'.format(output))
@@ -126,6 +133,7 @@ class AlModel:
         self.model = model
         self.model_filename = model_filename
         self.finished = False
+        self.images_needed = 0
         self.histories = []
         self.best_val_loss = BestScore(epoch=None, value=None)
         self.epochs_trained = 0
@@ -189,11 +197,11 @@ def simulate(model, pick, stopping, epochs):
     stop_strategy = STOPPINGS_MAPPING[stopping]
     epoch_strategy = EPOCHS_MAPPING[epochs]
 
-    X_val, Y_val = load_data_memory([VAL_DIR], 'image', 'masks',
-                                    resize=RESIZE_TO, aug=True)
-
     if not os.path.exists(os.path.join(ACTIVE_DIR, 'image')):
         os.makedirs(os.path.join(ACTIVE_DIR, 'image'))
+    else:
+        print('Active learning data folder already exists')
+        return
     if not os.path.exists(os.path.join(ACTIVE_DIR, 'masks')):
         os.makedirs(os.path.join(ACTIVE_DIR, 'masks'))
 
@@ -206,6 +214,9 @@ def simulate(model, pick, stopping, epochs):
                                            stopping,
                                            now_str)
 
+    X_val, Y_val = load_data_memory([VAL_DIR], 'image', 'masks',
+                                    resize=RESIZE_TO, aug=True)
+
     # prepare models
     model_list = []
     max_model_name = 0
@@ -217,7 +228,8 @@ def simulate(model, pick, stopping, epochs):
         model_list.append(AlModel(m, _model, model_filename, ))
 
     unpicked = glob.glob(os.path.join(TRAIN_DIR, 'image/*.png'))
-    _ = pick_copy_images(unpicked, INIT_PICK, strategy=pick_strategy)
+    # initial samples
+    _ = pick_copy_images(unpicked, INIT_PICK, strategy=strategy_random)
     n_train_samples = INIT_PICK
 
     train_round = 1
@@ -249,12 +261,14 @@ def simulate(model, pick, stopping, epochs):
 
             if not unpicked or stop_strategy(model=m, epochs=STOP_AFTER_EPOCHS_NOT_CHANGED):
                 m.finished = True
+                m.images_needed = len(glob.glob(os.path.join(ACTIVE_IMAGE_DIR, '*.png')))
 
         if all([m.finished for m in model_list]):
             break
 
         # pick next batch of images
-        _ = pick_copy_images(unpicked, TRAIN_PICK)
+        _ = pick_copy_images(unpicked, TRAIN_PICK, strategy=pick_strategy,
+                             models=model_list)
         n_train_samples += TRAIN_PICK
         train_round += 1
 
@@ -267,23 +281,24 @@ def simulate(model, pick, stopping, epochs):
     evals = [m.eval() for m in model_list]
 
     print('========== STATS ==========')
-    print('Model{}| rnd\t| eps\t| loss\t| val_loss\t| acc\t| iou\t' \
-          '| val_acc\t| val_iou\t| test_acc\t| test_iou\t|'.format(' '*(max_model_name - 5)))
+    print('Model{}| img | rnd | eps | loss   | val_loss | acc    | iou    ' \
+          '| val_acc | val_iou | test_acc | test_iou |'.format(' '*(max_model_name - 5)))
     for m, e in zip(model_list, evals):
-        print('{}{}| {}\t| {}\t| {:.4f}\t| {:.4f}\t| {:.4f}\t| {:.4f}\t' \
-              '| {:.4f}\t| {:.4f}\t' \
-              '| {:.4f}\t| {:.4f}\t|'.format(m.name,
-                                             ' '*(max_model_name-len(m.name)),
-                                             m.rounds_trained,
-                                             m.epochs_trained,
-                                             m.get_best('loss', greater_better=False),
-                                             m.get_best('val_loss', greater_better=False),
-                                             m.get_best('acc'),
-                                             m.get_best('mean_iou'),
-                                             m.get_best('val_acc'),
-                                             m.get_best('val_mean_iou'),
-                                             e[1],
-                                             e[2]))
+        print('{}{}| {:3} | {:3} | {:3} | {:.4f} | {:.4f}   | {:.4f} | {:.4f} ' \
+              '| {:.4f}  | {:.4f}  ' \
+              '| {:.4f}   | {:.4f}   |'.format(m.name,
+                                               ' '*(max_model_name-len(m.name)),
+                                               m.images_needed,
+                                               m.rounds_trained,
+                                               m.epochs_trained,
+                                               m.get_best('loss', greater_better=False),
+                                               m.get_best('val_loss', greater_better=False),
+                                               m.get_best('acc'),
+                                               m.get_best('mean_iou'),
+                                               m.get_best('val_acc'),
+                                               m.get_best('val_mean_iou'),
+                                               e[1],
+                                               e[2]))
 
 
 cli.add_command(simulate)
