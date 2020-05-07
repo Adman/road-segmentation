@@ -17,8 +17,6 @@ $ pip install -r requirements.txt
 
 ## Usage
 
-TODO
-
 ### Dataset setup
 
 Script `data/split_data.py` does simple preprocessing and splits data into
@@ -58,4 +56,11 @@ $ python run.py visualize --help
 
 ### Active learning
 
-TODO
+The main active learning script is located in the root of this directory and called
+`al.py`. If we want to run training procedure for specific model, it has to be specified
+and loaded in `run.py`. It is possible to specify sampling method, stopping condition
+and the epoch strategy, all of which are defined in `alutils.py` file.
+For more information on how to specify these parameters, run:
+```bash
+$ python al.py simulate --help
+```
