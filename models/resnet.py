@@ -104,7 +104,7 @@ def up_conv_block(input_tensor, kernel_size, filters, stage, block, strides=(1, 
 
 # taken from
 # https://github.com/danielelic/deep-segmentation/blob/master/train_resnet.py
-def resnet(input_size=(480, 640, 3), loss='binary_crossentropy', f=16):
+def resnet(input_size=(480, 640, 3), loss='binary_crossentropy', f=16, big=True):
     bn_axis = 3
     classes = 1
 
@@ -116,42 +116,50 @@ def resnet(input_size=(480, 640, 3), loss='binary_crossentropy', f=16):
     x = MaxPooling2D((3, 3), strides=(2, 2))(x)
 
     x = conv_block(x, 3, [f, f, f * 2], stage=2, block='a', strides=(1, 1))
-    #x = identity_block(x, 3, [f, f, f * 2], stage=2, block='b')
+    if big:
+        x = identity_block(x, 3, [f, f, f * 2], stage=2, block='b')
     x2 = identity_block(x, 3, [f, f, f * 2], stage=2, block='c')
 
     x = conv_block(x2, 3, [f * 2, f * 2, f * 4], stage=3, block='a')
-    #x = identity_block(x, 3, [f * 2, f * 2, f * 4], stage=3, block='b')
+    if big:
+        x = identity_block(x, 3, [f * 2, f * 2, f * 4], stage=3, block='b')
     x3 = identity_block(x, 3, [f * 2, f * 2, f * 4], stage=3, block='d')
 
     x = conv_block(x3, 3, [f * 4, f * 4, f * 8], stage=4, block='a')
-    #x = identity_block(x, 3, [f * 4, f * 4, f * 8], stage=4, block='b')
+    if big:
+        x = identity_block(x, 3, [f * 4, f * 4, f * 8], stage=4, block='b')
     x4 = identity_block(x, 3, [f * 4, f * 4, f * 8], stage=4, block='f')
 
     x = conv_block(x4, 3, [f * 8, f * 8, f * 16], stage=5, block='a')
     x = identity_block(x, 3, [f * 8, f * 8, f * 16], stage=5, block='b')
-    #x = identity_block(x, 3, [f * 8, f * 8, f * 16], stage=5, block='c')
+    if big:
+        x = identity_block(x, 3, [f * 8, f * 8, f * 16], stage=5, block='c')
 
     x = up_conv_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='a')
     x = identity_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='b')
-    #x = identity_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='c')
+    if big:
+        x = identity_block(x, 3, [f * 16, f * 8, f * 8], stage=6, block='c')
 
     x = concatenate([x, x4], axis=bn_axis)
 
     x = up_conv_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='a')
     x = identity_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='b')
-    #x = identity_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='f')
+    if big:
+        x = identity_block(x, 3, [f * 16, f * 4, f * 4], stage=7, block='f')
 
     x = concatenate([x, x3], axis=bn_axis)
 
     x = up_conv_block(x, 3, [f * 8, f * 2, f * 2], stage=8, block='a')
     x = identity_block(x, 3, [f * 8, f * 2, f * 2], stage=8, block='b')
-    #x = identity_block(x, 3, [f * 8, f * 2, f * 2], stage=8, block='d')
+    if big:
+        x = identity_block(x, 3, [f * 8, f * 2, f * 2], stage=8, block='d')
 
     x = concatenate([x, x2], axis=bn_axis)
 
     x = up_conv_block(x, 3, [f * 4, f, f], stage=10, block='a', strides=(1, 1))
     x = identity_block(x, 3, [f * 4, f, f], stage=10, block='b')
-    #x = identity_block(x, 3, [f * 4, f, f], stage=10, block='c')
+    if big:
+        x = identity_block(x, 3, [f * 4, f, f], stage=10, block='c')
 
     x = UpSampling2D(size=(2, 2))(x)
     x = Conv2D(classes, (3, 3), padding='same', activation='sigmoid', name='convLast')(x)
@@ -166,4 +174,4 @@ def resnet(input_size=(480, 640, 3), loss='binary_crossentropy', f=16):
 
 
 def resnetsmall(input_size=(480, 640, 3), loss='binary_crossentropy'):
-    return resnet(input_size=input_size, loss=loss, f=8)
+    return resnet(input_size=input_size, loss=loss, f=8, big=False)
