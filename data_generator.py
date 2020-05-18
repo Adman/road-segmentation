@@ -182,11 +182,11 @@ def load_single_image(path, resize=(640, 480), tohsv=False):
     return img
 
 
-def save_predicted_images(path, test_image_folder, predictions, resize_to):
+def save_predicted_images(path, test_image_folder, predictions, resize_to, save_mask):
     os.makedirs(path, exist_ok=True)
     test_imgs = sorted(glob.glob(os.path.join(test_image_folder, '*.png')))
 
-    COLORIZED_ONES = np.ones((480, 640, 3)) * (0, 1, 0)
+    COLORIZED_ONES = np.ones((480, 640, 3)) * (1, 0, 1)
 
     for p, t in zip(predictions, test_imgs):
         p[p <= 0.5] = 0
@@ -196,11 +196,12 @@ def save_predicted_images(path, test_image_folder, predictions, resize_to):
         img = cv2.resize(img, resize_to)
         basename = os.path.basename(t)
 
-        # save predicted mask
-        #cv2.imwrite(os.path.join(path, 'mask_{}'.format(basename)), p)
+        if save_mask:
+            # save predicted mask
+            cv2.imwrite(os.path.join(path, 'mask_{}'.format(basename)), p)
 
         mask = cv2.cvtColor(p, cv2.COLOR_GRAY2BGR) * COLORIZED_ONES
-        out = cv2.addWeighted(img, 1, mask.astype(np.uint8), 0.3, 0)
+        out = cv2.addWeighted(img, 1, mask.astype(np.uint8), 0.7, 0)
 
         cv2.imwrite(os.path.join(path, '{}'.format(basename)), out)
 

@@ -10,6 +10,7 @@ import numpy as np
 
 import keras.backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from keras.models import Model
 
 import segmentation_models as sm
 import matplotlib.pyplot as plt
@@ -32,7 +33,6 @@ MODEL_MAPPING = {
     'resnet': models.resnet,
     'segnetsmall': models.segnetsmall,
     'resnetsmall': models.resnetsmall,
-    'resnet_bnn': models.resnet_bnn,
 
     'shuffleseg': models.shuffleseg,
     'shufflenetv2': models.shufflenetv2,
@@ -238,7 +238,9 @@ def evaluate(model, path, hsv, return_only):
 @click.option('--path', '-p', help='Path to saved model')
 @click.option('--hsv', '-h', type=bool, default=False,
               help='Whether to convert rgb image to hsv')
-def predict(model, path, hsv):
+@click.option('--save_mask', '-s', type=bool, default=False,
+              help='Whether to save the mask')
+def predict(model, path, hsv, save_mask):
     _model = MODEL_MAPPING[model]
     _model = _model(input_size=INPUT_SIZE, loss=LOSS)
 
@@ -251,8 +253,11 @@ def predict(model, path, hsv):
     results = _model.predict_generator(test_gen, steps=N_TEST_SAMPLES,
                                        verbose=1)
 
-    save_predicted_images('data/predictions', 'data/test/image', results,
-                          RESIZE_TO)
+    save_predicted_images('data/predictions',
+                          os.path.join(TEST_DIR, 'image'),
+                          results,
+                          RESIZE_TO,
+                          save_mask)
 
 
 @click.command(help='Visualize activations of given model at specific layer')
