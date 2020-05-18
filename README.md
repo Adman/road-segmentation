@@ -17,6 +17,8 @@ $ pip install -r requirements.txt
 
 ## Usage
 
+All the script commands mentioned below are accompanied by their help description (click package).
+
 ### Dataset setup
 
 Script `data/split_data.py` does simple preprocessing and splits data into
