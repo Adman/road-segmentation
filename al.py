@@ -78,19 +78,27 @@ NAME_MAPPING = {
 }
 
 
-def pick_copy_images(images, k=1, strategy=strategy_random, models=None, **kwargs):
+def pick_copy_images(images, k=1, strategy=strategy_random, models=None,
+                     simulation=True,  **kwargs):
     """Pick k images and copy them to ACTIVE_FOLDER.
        Picked images are removed from `images` list.
     """
     k = min(k, len(images))
     imgs = strategy(images, k, models=models, name_mapping=NAME_MAPPING, **kwargs)
 
+    if not simulation:
+        print('Please label following images: {}'.format(', '.join(imgs)))
+        resp = 'n'
+        msg = 'Please, copy masks to {} folder and then press c to continue: '
+        while resp != 'c':
+            resp = input(msg.format(os.path.join(TRAIN_DIR, 'masks')))
+
     for img in imgs:
         iname = os.path.basename(img)
-        mask = os.path.join(TRAIN_DIR, 'masks', iname)
-
+        if simulation:
+            mask = os.path.join(ACTIVE_MASK_DIR, 'masks', iname)
+            shutil.copyfile(mask, os.path.join(ACTIVE_MASK_DIR, iname))
         shutil.copyfile(img, os.path.join(ACTIVE_IMAGE_DIR, iname))
-        shutil.copyfile(mask, os.path.join(ACTIVE_MASK_DIR, iname))
         images.remove(img)
 
     return imgs
@@ -197,7 +205,9 @@ class AlModel:
               default='nostop', help='Method which stops training')
 @click.option('--epochs', '-e', type=click.Choice(AVAILABLE_EPOCHS),
               default='constant', help='Method to choose number epochs for round')
-def simulate(model, init, pick, stopping, epochs):
+@click.option('--simulation', type=bool,
+              default=True, help='If you do not want to run simulations, the models asks for labels')
+def simulate(model, init, pick, stopping, epochs, simulation):
     data_gen_args = dict(fill_mode='constant',
                          #zoom_range=0.05,
                          rotation_range=5,
@@ -241,7 +251,8 @@ def simulate(model, init, pick, stopping, epochs):
 
     unpicked = glob.glob(os.path.join(TRAIN_DIR, 'image/*.png'))
     # initial samples
-    _ = pick_copy_images(unpicked, INIT_PICK, strategy=init_strategy)
+    _ = pick_copy_images(unpicked, INIT_PICK, strategy=init_strategy,
+                         simulation=simulation)
     n_train_samples = INIT_PICK
 
     train_round = 1
@@ -280,7 +291,7 @@ def simulate(model, init, pick, stopping, epochs):
 
         # pick next batch of images
         p = pick_copy_images(unpicked, TRAIN_PICK, strategy=pick_strategy,
-                             models=model_list)
+                             models=model_list, simulation=simulation)
         n_train_samples += TRAIN_PICK
         train_round += 1
 
