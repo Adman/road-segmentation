@@ -11,9 +11,11 @@ from matplotlib import pyplot as plt
 plt.switch_backend('agg')
 
 from alutils import (
+    strategy_init_diversity,
     strategy_random,
     strategy_avg_entropy,
     strategy_sum_entropy,
+    strategy_diversity,
     stopping_nostop,
     stopping_early_val_loss,
     epochs_constant
@@ -46,10 +48,15 @@ TRAIN_PICK = 15
 EPOCHS_PER_ROUND_CONSTANT = 6
 STOP_AFTER_EPOCHS_NOT_CHANGED = 10
 
+INIT_STRATEGY_MAPPING = {
+    'random': strategy_random,
+    'diversity': strategy_init_diversity
+}
 STRATEGY_MAPPING = {
     'random': strategy_random,
     'avgentropy': strategy_avg_entropy,
-    'sumentropy': strategy_sum_entropy
+    'sumentropy': strategy_sum_entropy,
+    'diversity': strategy_diversity
 }
 STOPPINGS_MAPPING = {
     'nostop': stopping_nostop,
@@ -58,6 +65,7 @@ STOPPINGS_MAPPING = {
 EPOCHS_MAPPING = {
     'constant': epochs_constant
 }
+AVAILABLE_INIT_STRATEGIES = list(INIT_STRATEGY_MAPPING.keys())
 AVAILABLE_STRATEGIES = list(STRATEGY_MAPPING.keys())
 AVAILABLE_STOPPINGS = list(STOPPINGS_MAPPING.keys())
 AVAILABLE_EPOCHS = list(EPOCHS_MAPPING.keys())
@@ -65,7 +73,8 @@ AVAILABLE_EPOCHS = list(EPOCHS_MAPPING.keys())
 NAME_MAPPING = {
     'resnetsmall': 'ResNet-4',
     'mobilenetv3small': 'MNetV3-S-2',
-    'mobilenetv2': 'MNetV2-4'
+    'mobilenetv2': 'MNetV2-4',
+    'shufflenetv2': 'SNetV2-1'
 }
 
 
@@ -74,7 +83,7 @@ def pick_copy_images(images, k=1, strategy=strategy_random, models=None, **kwarg
        Picked images are removed from `images` list.
     """
     k = min(k, len(images))
-    imgs = strategy(images, k, models=models, **kwargs)
+    imgs = strategy(images, k, models=models, name_mapping=NAME_MAPPING, **kwargs)
 
     for img in imgs:
         iname = os.path.basename(img)
@@ -180,19 +189,22 @@ class AlModel:
 @click.option('--model', '-m', multiple=True,
               type=click.Choice(AVAILABLE_MODELS),
               required=True, help='Model to simulate training on')
+@click.option('--init', '-i', type=click.Choice(AVAILABLE_INIT_STRATEGIES),
+              default='random', help='Strategy to sample initial images')
 @click.option('--pick', '-p', type=click.Choice(AVAILABLE_STRATEGIES),
               default='random', help='Strategy to sample images for training')
 @click.option('--stopping', '-s', type=click.Choice(AVAILABLE_STOPPINGS),
               default='nostop', help='Method which stops training')
 @click.option('--epochs', '-e', type=click.Choice(AVAILABLE_EPOCHS),
               default='constant', help='Method to choose number epochs for round')
-def simulate(model, pick, stopping, epochs):
+def simulate(model, init, pick, stopping, epochs):
     data_gen_args = dict(fill_mode='constant',
                          #zoom_range=0.05,
                          rotation_range=5,
                          #vertical_flip=True,
                          horizontal_flip=True)
 
+    init_strategy = INIT_STRATEGY_MAPPING[init]
     pick_strategy = STRATEGY_MAPPING[pick]
     stop_strategy = STOPPINGS_MAPPING[stopping]
     epoch_strategy = EPOCHS_MAPPING[epochs]
@@ -229,7 +241,7 @@ def simulate(model, pick, stopping, epochs):
 
     unpicked = glob.glob(os.path.join(TRAIN_DIR, 'image/*.png'))
     # initial samples
-    _ = pick_copy_images(unpicked, INIT_PICK, strategy=strategy_random)
+    _ = pick_copy_images(unpicked, INIT_PICK, strategy=init_strategy)
     n_train_samples = INIT_PICK
 
     train_round = 1
@@ -267,14 +279,12 @@ def simulate(model, pick, stopping, epochs):
             break
 
         # pick next batch of images
-        _ = pick_copy_images(unpicked, TRAIN_PICK, strategy=pick_strategy,
+        p = pick_copy_images(unpicked, TRAIN_PICK, strategy=pick_strategy,
                              models=model_list)
         n_train_samples += TRAIN_PICK
         train_round += 1
 
     plot_histories(model_list, suffix)
-
-    # TODO: remove active dir folder
 
     # evaluate models
     print('Starting evaluation on test set...')
