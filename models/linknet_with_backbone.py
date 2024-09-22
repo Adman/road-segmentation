@@ -1,10 +1,14 @@
-import segmentation_models as sm
+from segmentation_models import Linknet
 from .metrics import mean_iou
 
 
 def linknet_with_backbone(encoder, input_size=(480, 640, 3), loss='binary_crossentropy'):
-    model = sm.Linknet(backbone_name=encoder, encoder_weights='imagenet',
-                       encoder_freeze=True)
+    model = Linknet(
+        backbone_name=encoder,
+        input_shape=input_size,
+        encoder_weights='imagenet',
+        encoder_freeze=True
+    )
     model.compile('Adam', loss=loss, metrics=['accuracy', mean_iou])
 
     return model

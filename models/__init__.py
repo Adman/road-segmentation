@@ -22,3 +22,4 @@ from .linknet_with_backbone import (
 )
 
 from .fpn_with_backbone import fpn_resnet34, fpn_resnet50, fpn_vgg16
+

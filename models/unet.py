@@ -1,9 +1,14 @@
-from keras.models import *
-from keras.layers import *
-from keras.optimizers import *
-from keras.regularizers import l2
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras import backend as keras
+from tensorflow.keras.layers import (
+    Activation,
+    concatenate,
+    Conv2D,
+    Dropout,
+    Input,
+    MaxPooling2D,
+    UpSampling2D,
+)
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 from .metrics import mean_iou
 
@@ -52,9 +57,12 @@ def unet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
     conv10 = Conv2D(1, 1, activation = 'sigmoid')(conv9)
 
-    model = Model(input = inputs, output = conv10)
+    model = Model(inputs=inputs, outputs=conv10)
 
-    model.compile(optimizer=Adam(lr=1e-4), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=1e-4),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
     
     return model

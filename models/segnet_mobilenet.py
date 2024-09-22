@@ -1,7 +1,14 @@
-from keras.models import *
-from keras.layers import *
-import keras
-import keras.backend as K
+from tensorflow.keras import backend as K
+from keras.layers import (
+    Activation,
+    BatchNormalization,
+    Conv2D,
+    DepthwiseConv2D,
+    Input,
+    UpSampling2D,
+    ZeroPadding2D
+)
+from keras.models import Model
 from keras.optimizers import Adam
 
 from .metrics import mean_iou
@@ -91,7 +98,10 @@ def segnet_mobilenet(input_size=(480, 640, 3), loss='binary_crossentropy'):
     o = Conv2D(n_classes, (3, 3), padding='same', activation='sigmoid')(o)
     model = Model(img_input, o, name='segnet_mobilenet')
 
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+)
 
     return model

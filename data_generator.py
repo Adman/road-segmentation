@@ -1,10 +1,10 @@
 import glob
 import os
 
-import numpy as np
-from keras.preprocessing.image import ImageDataGenerator
 import cv2
+import numpy as np
 from imgaug import augmenters as iaa
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 Road = [128, 64, 128]
 Noroad = [255, 73, 95]
@@ -113,7 +113,7 @@ def test_data_generator(test_path, image_folder, img_target_size=(480, 640),
 
     for img in image_gen:
         img = normalize_image(img, colorspace=colorspace)
-        yield img
+        yield (img,)
 
 
 def eval_generator(batch_size, test_path, image_folder, mask_folder,

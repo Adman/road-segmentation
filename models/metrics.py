@@ -1,7 +1,8 @@
-import keras.backend as K
+import tensorflow.keras.backend as K
 
 
 def mean_iou(y_true, y_pred):
+    y_true = K.cast(y_true, dtype='float32')
     y_pred = K.cast(K.greater(y_pred, .5), dtype='float32')
     inter = K.sum(K.sum(K.squeeze(y_true * y_pred, axis=3), axis=2), axis=1)
     union = K.sum(K.sum(K.squeeze(y_true + y_pred, axis=3), axis=2), axis=1) - inter
@@ -9,6 +10,7 @@ def mean_iou(y_true, y_pred):
 
 
 def dice_coef(y_true, y_pred):
+    y_true = K.cast(y_true, dtype='float32')
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)

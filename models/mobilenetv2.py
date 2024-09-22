@@ -1,17 +1,17 @@
-from keras import backend as K
-from keras.layers import (
-    ReLU,
-    Input,
-    Conv2D,
-    BatchNormalization,
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import (
     Activation,
     Add,
+    BatchNormalization,
+    Conv2D,
     DepthwiseConv2D,
+    Input,
+    ReLU,
     UpSampling2D,
     ZeroPadding2D,
 )
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 from .metrics import mean_iou
 from .shufflenetv2 import deeplabv3plus
@@ -24,20 +24,20 @@ def inverted_res_block(inp, filters=None, alpha=None, stride=None, expansion=Non
     tchannel = K.int_shape(inp)[bn_axis] * expansion
     cchannel = int(filters * alpha)
 
-    x = Conv2D(tchannel, 1, padding='same', use_bias=False, name='{}/conv1'.format(prefix))(inp)
-    x = BatchNormalization(axis=bn_axis, name='{}/bn1'.format(prefix))(x)
-    x = ReLU(6., name='{}/relu1'.format(prefix))(x)
+    x = Conv2D(tchannel, 1, padding='same', use_bias=False, name='{}|conv1'.format(prefix))(inp)
+    x = BatchNormalization(axis=bn_axis, name='{}|bn1'.format(prefix))(x)
+    x = ReLU(6., name='{}|relu1'.format(prefix))(x)
 
     x = DepthwiseConv2D(3, strides=stride, padding='same' if stride == 1 else 'valid',
-                        use_bias=False, name='{}/dwconv'.format(prefix))(x)
-    x = BatchNormalization(axis=bn_axis, name='{}/bn2'.format(prefix))(x)
-    x = ReLU(6., name='{}/relu2'.format(prefix))(x)
+                        use_bias=False, name='{}|dwconv'.format(prefix))(x)
+    x = BatchNormalization(axis=bn_axis, name='{}|bn2'.format(prefix))(x)
+    x = ReLU(6., name='{}|relu2'.format(prefix))(x)
 
-    x = Conv2D(cchannel, 3, padding='same', use_bias=False, name='{}/conv_out'.format(prefix))(x)
+    x = Conv2D(cchannel, 3, padding='same', use_bias=False, name='{}|conv_out'.format(prefix))(x)
     x = BatchNormalization(axis=bn_axis)(x)
 
     if addition:
-        x = Add(name='{}/add'.format(prefix))([inp, x])
+        x = Add(name='{}|add'.format(prefix))([inp, x])
            
     return x
 
@@ -87,7 +87,10 @@ def mobilenetv2(input_size=(480, 640, 3), loss='binary_crossentropy'):
     o = Conv2D(1, (3, 3), padding='same', name='conv_final', activation='sigmoid')(o)
 
     model = Model(inp, o, name='mobilenetv2')
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return model

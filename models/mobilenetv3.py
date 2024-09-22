@@ -1,17 +1,17 @@
-from keras import backend as K
-from keras.layers import (
-    Input,
-    Conv2D,
-    BatchNormalization,
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import (
     Activation,
     Add,
-    Multiply,
-    DepthwiseConv2D,
     AveragePooling2D,
+    BatchNormalization,
+    Conv2D,
+    DepthwiseConv2D,
+    Input,
+    Multiply,
     UpSampling2D,
 )
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 from .shufflenetv2 import deeplabv3plus
 from .metrics import mean_iou
@@ -34,9 +34,9 @@ def hsigmoid(x):
 
 
 def bottleneck(x, out_channels, exp_channels, use_kernel3, strides, activation, use_se_flag, stage, unit):
-    prefix = 'stage{}/unit{}'.format(stage, unit)
+    prefix = 'stage{}|unit{}'.format(stage, unit)
     bn_axis = -1
-    in_channels = x.shape.as_list()[-1]
+    in_channels = x.shape[-1]
     residual = (in_channels == out_channels) and (strides == 1)
     inpshape = K.int_shape(x)
     use_exp_conv = exp_channels != out_channels
@@ -46,37 +46,37 @@ def bottleneck(x, out_channels, exp_channels, use_kernel3, strides, activation, 
         identity = x
 
     if use_exp_conv:
-        x = Conv2D(mid_channels, 1, use_bias=False, name='{}/expconv'.format(prefix))(x)
-        x = BatchNormalization(axis=bn_axis, name='{}/expbatch'.format(prefix))(x)
-        x = Activation(activation, name='{}/expactiv'.format(prefix))(x)
+        x = Conv2D(mid_channels, 1, use_bias=False, name='{}|expconv'.format(prefix))(x)
+        x = BatchNormalization(axis=bn_axis, name='{}|expbatch'.format(prefix))(x)
+        x = Activation(activation, name='{}|expactiv'.format(prefix))(x)
 
     if use_kernel3:
-        x = DepthwiseConv2D(3, strides=strides, use_bias=False, padding='same', name='{}/dwcov3'.format(prefix))(x)
-        x = BatchNormalization(axis=bn_axis, name='{}/dwconv3batch'.format(prefix))(x)
-        x = Activation(activation, name='{}/dwconv3activ'.format(prefix))(x)
+        x = DepthwiseConv2D(3, strides=strides, use_bias=False, padding='same', name='{}|dwcov3'.format(prefix))(x)
+        x = BatchNormalization(axis=bn_axis, name='{}|dwconv3batch'.format(prefix))(x)
+        x = Activation(activation, name='{}|dwconv3activ'.format(prefix))(x)
     else:
-        x = DepthwiseConv2D(5, strides=strides, padding='same', use_bias=False, name='{}/dwcov5'.format(prefix))(x)
-        x = BatchNormalization(axis=bn_axis, name='{}/dwconv5batch'.format(prefix))(x)
-        x = Activation(activation, name='{}/dwconv5activ'.format(prefix))(x)
+        x = DepthwiseConv2D(5, strides=strides, padding='same', use_bias=False, name='{}|dwcov5'.format(prefix))(x)
+        x = BatchNormalization(axis=bn_axis, name='{}|dwconv5batch'.format(prefix))(x)
+        x = Activation(activation, name='{}|dwconv5activ'.format(prefix))(x)
 
     if use_se_flag:
         reduction = 4
         c = round_channels(float(mid_channels) / reduction)
-        pool_size = x._keras_shape[1:3]
+        pool_size = x.shape[1:3]
         
-        w = AveragePooling2D(pool_size=pool_size, name='{}/seavgpool'.format(prefix))(x)
-        w = Conv2D(c, 1, use_bias=True, name='{}/seconv1'.format(prefix))(w)
-        w = Activation(activation, name='{}/seactiv'.format(prefix))(w)
-        w = Conv2D(mid_channels, 1, use_bias=True, name='{}/seconv2'.format(prefix))(w)
-        w = Activation(hsigmoid, name='{}/seactiv2'.format(prefix))(w)       
+        w = AveragePooling2D(pool_size=pool_size, name='{}|seavgpool'.format(prefix))(x)
+        w = Conv2D(c, 1, use_bias=True, name='{}|seconv1'.format(prefix))(w)
+        w = Activation(activation, name='{}|seactiv'.format(prefix))(w)
+        w = Conv2D(mid_channels, 1, use_bias=True, name='{}|seconv2'.format(prefix))(w)
+        w = Activation(hsigmoid, name='{}|seactiv2'.format(prefix))(w)
 
-        x = Multiply(name='{}/semul'.format(prefix))([x, w])
+        x = Multiply(name='{}|semul'.format(prefix))([x, w])
 
-    x = Conv2D(out_channels, 1, use_bias=False, padding='same', name='{}/finalconv'.format(prefix))(x)
-    x = BatchNormalization(axis=bn_axis, name='{}/finalbatch'.format(prefix))(x)
+    x = Conv2D(out_channels, 1, use_bias=False, padding='same', name='{}|finalconv'.format(prefix))(x)
+    x = BatchNormalization(axis=bn_axis, name='{}|finalbatch'.format(prefix))(x)
 
     if residual:
-        x = Add(name='{}/add'.format(prefix))([x, identity])
+        x = Add(name='{}|add'.format(prefix))([x, identity])
 
     return x
 
@@ -132,7 +132,7 @@ def _mobilenetv3(inp, version, alpha):
     # final se block
     #reduction = 4
     #c = round_channels(float(final_block_channels) / reduction)
-    #pool_size = x._keras_shape[1:3]    
+    #pool_size = x.shape[1:3]
 
     #w = AveragePooling2D(pool_size=pool_size, name='final_seavgpool')(x)
     #w = Conv2D(c, 1, padding='same', use_bias=True, name='final_seconv1')(w)
@@ -148,39 +148,39 @@ def _mobilenetv3(inp, version, alpha):
 def lite_raspp(model, version):
     bn_axis = -1
     if version == 'small':
-        f8_name = 'stage2/unit0/expactiv' #'stage3/unit0/expbatch'
-        f16_name = 'stage2/unit4/add' #'final_activation'#'stage3/unit1/add'
+        f8_name = 'stage2|unit0|expactiv' #'stage3/unit0/expbatch'
+        f16_name = 'stage2|unit4|add' #'final_activation'#'stage3/unit1/add'
         #pool = ()
     elif version == 'large':
-        f8_name = 'stage3/unit0/expactiv' #'stage2/unit0/expbatch'
-        f16_name = 'stage3/unit5/add' #'final_activation'#'stage2/unit1/add'
+        f8_name = 'stage3|unit0|expactiv' #'stage2/unit0/expbatch'
+        f16_name = 'stage3|unit5|add' #'final_activation'#'stage2/unit1/add'
         pool = (30, 40)
 
     out_feature8 = model.get_layer(f8_name).output
     out_feature16 = model.get_layer(f16_name).output
 
     # branch1
-    x1 = Conv2D(128, 1, padding='same', name='lraspp/branch1/conv')(out_feature16)
-    x1 = BatchNormalization(axis=bn_axis, name='lraspp/branch1/bn')(x1)
-    x1 = Activation('relu', name='lraspp/branch1/activation')(x1)
+    x1 = Conv2D(128, 1, padding='same', name='lraspp|branch1|conv')(out_feature16)
+    x1 = BatchNormalization(axis=bn_axis, name='lraspp|branch1|bn')(x1)
+    x1 = Activation('relu', name='lraspp|branch1|activation')(x1)
 
     # branch2
-    x2 = AveragePooling2D(pool_size=pool, name='lraspp/branch2/avgpool')(out_feature16)
-    x2 = Conv2D(128, 1, padding='same', name='lraspp/branch2/conv')(x2)
-    x2 = Activation('sigmoid', name='lraspp/branch2/activation')(x2)
-    x2 = UpSampling2D(size=(30, 40), interpolation='bilinear', name='lraspp/branch2/up')(x2)
+    x2 = AveragePooling2D(pool_size=pool, name='lraspp|branch2|avgpool')(out_feature16)
+    x2 = Conv2D(128, 1, padding='same', name='lraspp|branch2|conv')(x2)
+    x2 = Activation('sigmoid', name='lraspp|branch2|activation')(x2)
+    x2 = UpSampling2D(size=(30, 40), interpolation='bilinear', name='lraspp|branch2|up')(x2)
     
     # branch3
-    x3 = Conv2D(1, 1, padding='same', name='lraspp/branch3/conv')(out_feature8)
+    x3 = Conv2D(1, 1, padding='same', name='lraspp|branch3|conv')(out_feature8)
 
     # merge1
-    x = Multiply(name='lraspp/mul')([x1, x2])
-    x = UpSampling2D(size=(2, 2), name='lraspp/up2')(x)
-    x = Conv2D(1, 1, padding='same', name='lraspp/conv')(x)
+    x = Multiply(name='lraspp|mul')([x1, x2])
+    x = UpSampling2D(size=(2, 2), name='lraspp|up2')(x)
+    x = Conv2D(1, 1, padding='same', name='lraspp|conv')(x)
 
     # merge2
     x = Add()([x, x3])
-    x = UpSampling2D(size=(8, 8), name='lraspp/finalupsample')(x)
+    x = UpSampling2D(size=(8, 8), name='lraspp|finalupsample')(x)
     x = Activation('softmax')(x)
 
     return model.input, x
@@ -205,8 +205,11 @@ def mobilenetv3(input_size=(480, 640, 3), loss='binary_crossentropy', version='l
     # o = Conv2D(1, 1, padding='same', activation='sigmoid')(o)
 
     model = Model(inp, o, name='mobilenetv3{0}'.format(version))
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return model
 

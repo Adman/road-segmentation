@@ -1,8 +1,15 @@
-from keras.models import Model, Sequential
-from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, ZeroPadding2D
-from keras.layers.core import Activation, Reshape
-from keras.layers.normalization import BatchNormalization
-from keras.optimizers import *
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import (
+    Activation,
+    BatchNormalization,
+    Conv2D,
+    Input,
+    MaxPooling2D,
+    Reshape,
+    UpSampling2D,
+    ZeroPadding2D,
+)
+from tensorflow.keras.optimizers import Adam, SGD
 
 from .metrics import mean_iou
 
@@ -122,8 +129,16 @@ def segnet(input_size=(480, 640, 3), loss='binary_crossentropy'):
         autoencoder.add(l)
 
     autoencoder.add(Activation('sigmoid'))
-    autoencoder.compile(optimizer=SGD(lr=0.001, momentum=0.9, decay=0.0005, nesterov=False),
-                        loss=loss, metrics=['accuracy', mean_iou])
+    autoencoder.compile(
+        optimizer=SGD(
+            learning_rate=0.001,
+            momentum=0.9,
+            weight_decay=0.0005,
+            nesterov=False,
+        ),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return autoencoder
 
@@ -181,7 +196,10 @@ def segnetsmall(input_size=(480, 640, 3), loss='binary_crossentropy'):
     o = Conv2D(n_classes, (3, 3), padding='same', activation='sigmoid')(o)
     model = Model(img_input, o, name='segnetSmall')
 
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return model

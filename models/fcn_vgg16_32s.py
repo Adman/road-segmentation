@@ -1,9 +1,13 @@
-from keras.models import *
-from keras.layers import *
-from keras.optimizers import *
-from keras.regularizers import l2
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras import backend as keras
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
+from tensorflow.keras.layers import (
+    Conv2D,
+    Dropout,
+    Input,
+    MaxPooling2D,
+)
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2
 
 from .layers import BilinearUpSampling2D
 from .metrics import mean_iou
@@ -55,7 +59,10 @@ def fcn_vgg16_32s(input_size=(480, 640, 3), loss='binary_crossentropy'):
     x = BilinearUpSampling2D(target_size=tuple(input_size))(x)
 
     model = Model(img_input, x)
-    model.compile(optimizer=Adam(lr=1e-4, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=1e-4, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return model

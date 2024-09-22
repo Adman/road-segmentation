@@ -1,20 +1,20 @@
 import numpy as np
-from keras import backend as K
-from keras.layers import (
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import (
     Activation,
     Add,
-    Concatenate,
-    Input,
-    Conv2D,
-    MaxPooling2D,
     BatchNormalization,
-    Lambda,
+    Concatenate,
+    Conv2D,
     DepthwiseConv2D,
-    UpSampling2D,
     Dropout,
+    Input,
+    Lambda,
+    MaxPooling2D,
+    UpSampling2D,
 )
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 from .metrics import mean_iou
 
@@ -30,47 +30,47 @@ def channel_shuffle(x):
 
 
 def channel_split(x, name=''):
-    in_channels = x.shape.as_list()[-1]
+    in_channels = x.shape[-1]
     ip = in_channels // 2
-    c_hat = Lambda(lambda z: z[:, :, :, 0:ip], name='{}/sp{}_slice'.format(name, 0))(x)
-    c = Lambda(lambda z: z[:, :, :, ip:], name='{}/sp{}_slice'.format(name, 1))(x)
+    c_hat = Lambda(lambda z: z[:, :, :, 0:ip], name='{}|sp{}_slice'.format(name, 0))(x)
+    c = Lambda(lambda z: z[:, :, :, ip:], name='{}|sp{}_slice'.format(name, 1))(x)
     return c_hat, c
 
 
 def shuffle_unit(inp, out_channels, bottleneck_ratio, strides=2, stage=1, block=1):
-    prefix = 'stage{}/block{}'.format(stage, block)
+    prefix = 'stage{}|block{}'.format(stage, block)
     bn_axis = -1
 
     bottleneck_channels = int(out_channels * bottleneck_ratio) // 2
     if strides < 2:
-        c_hat, c = channel_split(inp, '{}/spl'.format(prefix))
+        c_hat, c = channel_split(inp, '{}|spl'.format(prefix))
         inp = c
 
-    x = Conv2D(bottleneck_channels, kernel_size=(1, 1), strides=1, padding='same', name='{}/1x1conv_1'.format(prefix))(inp)
-    x = BatchNormalization(axis=bn_axis, name='{}/bn_1x1conv_1'.format(prefix))(x)
-    x = Activation('relu', name='{}/relu_1x1conv_1'.format(prefix))(x)
+    x = Conv2D(bottleneck_channels, kernel_size=(1, 1), strides=1, padding='same', name='{}|1x1conv_1'.format(prefix))(inp)
+    x = BatchNormalization(axis=bn_axis, name='{}|bn_1x1conv_1'.format(prefix))(x)
+    x = Activation('relu', name='{}|relu_1x1conv_1'.format(prefix))(x)
     # Special modification of Depth2D from paper
     x = DepthwiseConv2D(kernel_size=3, strides=(1 if stage == 4 else strides),
                         dilation_rate=(2 if stage == 4 and block > 1 else 1),
-                        padding='same', name='{}/3x3dwconv'.format(prefix))(x)
-    x = BatchNormalization(axis=bn_axis, name='{}/bn_3x3dwconv'.format(prefix))(x)
-    x = Conv2D(bottleneck_channels, kernel_size=1, strides=1, padding='same', name='{}/1x1conv_2'.format(prefix))(x)
-    x = BatchNormalization(axis=bn_axis, name='{}/bn_1x1conv_2'.format(prefix))(x)
-    x = Activation('relu', name='{}/relu_1x1conv_2'.format(prefix))(x)
+                        padding='same', name='{}|3x3dwconv'.format(prefix))(x)
+    x = BatchNormalization(axis=bn_axis, name='{}|bn_3x3dwconv'.format(prefix))(x)
+    x = Conv2D(bottleneck_channels, kernel_size=1, strides=1, padding='same', name='{}|1x1conv_2'.format(prefix))(x)
+    x = BatchNormalization(axis=bn_axis, name='{}|bn_1x1conv_2'.format(prefix))(x)
+    x = Activation('relu', name='{}|relu_1x1conv_2'.format(prefix))(x)
 
     if strides < 2:
-        ret = Concatenate(axis=bn_axis, name='{}/concat_1'.format(prefix))([x, c_hat])
+        ret = Concatenate(axis=bn_axis, name='{}|concat_1'.format(prefix))([x, c_hat])
     else:
         # Special modification of Depth2D from paper
         s2 = DepthwiseConv2D(kernel_size=3, strides=(1 if stage == 4 else strides),
-                             padding='same', name='{}/3x3dwconv_2'.format(prefix))(inp)
-        s2 = BatchNormalization(axis=bn_axis, name='{}/bn_3x3dwconv_2'.format(prefix))(s2)
-        s2 = Conv2D(bottleneck_channels, kernel_size=1, strides=1, padding='same', name='{}/1x1_conv_3'.format(prefix))(s2)
-        s2 = BatchNormalization(axis=bn_axis, name='{}/bn_1x1conv_3'.format(prefix))(s2)
-        s2 = Activation('relu', name='{}/relu_1x1conv_3'.format(prefix))(s2)
-        ret = Concatenate(axis=bn_axis, name='{}/concat_2'.format(prefix))([x, s2])
+                             padding='same', name='{}|3x3dwconv_2'.format(prefix))(inp)
+        s2 = BatchNormalization(axis=bn_axis, name='{}|bn_3x3dwconv_2'.format(prefix))(s2)
+        s2 = Conv2D(bottleneck_channels, kernel_size=1, strides=1, padding='same', name='{}|1x1_conv_3'.format(prefix))(s2)
+        s2 = BatchNormalization(axis=bn_axis, name='{}|bn_1x1conv_3'.format(prefix))(s2)
+        s2 = Activation('relu', name='{}|relu_1x1conv_3'.format(prefix))(s2)
+        ret = Concatenate(axis=bn_axis, name='{}|concat_2'.format(prefix))([x, s2])
 
-    ret = Lambda(channel_shuffle, name='{}/channel_shuffle'.format(prefix))(ret)
+    ret = Lambda(channel_shuffle, name='{}|channel_shuffle'.format(prefix))(ret)
 
     return ret
 
@@ -160,7 +160,10 @@ def shufflenetv2(input_size=(480, 640, 3), loss='binary_crossentropy'):
     o = Conv2D(1, (3, 3), padding='same', name='conv_final', activation='sigmoid')(o) 
 
     model = Model(inp, o, name='shufflenetv2')
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return model 

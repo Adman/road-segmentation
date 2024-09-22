@@ -1,20 +1,20 @@
 import numpy as np
-from keras import backend as K
-from keras.layers import (
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import (
     Activation,
     Add,
-    Concatenate,
-    Input,
-    Conv2D,
-    MaxPooling2D,
     AveragePooling2D,
     BatchNormalization,
-    Lambda,
-    DepthwiseConv2D,
+    Concatenate,
+    Conv2D,
     Conv2DTranspose,
+    DepthwiseConv2D,
+    Input,
+    Lambda,
+    MaxPooling2D,
 )
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 
 from .metrics import mean_iou
@@ -43,14 +43,14 @@ def group_conv(x, in_channels, out_channels, groups, kernel=1, stride=1, name=''
 
     for i in range(groups):
         offset = i * ig
-        group = Lambda(lambda z: z[:, :, :, offset: offset + ig], name='%s/g%d_slice' % (name, i))(x)
+        group = Lambda(lambda z: z[:, :, :, offset: offset + ig], name='%s|g%d_slice' % (name, i))(x)
         group_list.append(Conv2D(int(0.5 + out_channels / groups), kernel_size=kernel, strides=stride,
-                                 use_bias=False, padding='same', name='%s_/g%d' % (name, i))(group))
-    return Concatenate(name='%s/concat' % name)(group_list)
+                                 use_bias=False, padding='same', name='%s_|g%d' % (name, i))(group))
+    return Concatenate(name='%s|concat' % name)(group_list)
 
 
 def shuffle_unit(inputs, in_channels, out_channels, groups, bottleneck_ratio, strides=2, stage=1, block=1):
-    prefix = 'stage{}/block{}'.format(stage, block)
+    prefix = 'stage{}|block{}'.format(stage, block)
     bn_axis = 3
 
     bottleneck_channels = int(out_channels * bottleneck_ratio)
@@ -58,27 +58,27 @@ def shuffle_unit(inputs, in_channels, out_channels, groups, bottleneck_ratio, st
     
     x = group_conv(inputs, in_channels, out_channels=bottleneck_channels,
                    groups=(1 if stage == 2 and block == 1 else groups),
-                   name='%s/1x1_gconv_1' % prefix)
-    x = BatchNormalization(axis=bn_axis, name='%s/bn_gconv_1' % prefix)(x)
-    x = Activation('relu', name='%s/relu_gconv_1' % prefix)(x)
+                   name='%s|1x1_gconv_1' % prefix)
+    x = BatchNormalization(axis=bn_axis, name='%s|bn_gconv_1' % prefix)(x)
+    x = Activation('relu', name='%s|relu_gconv_1' % prefix)(x)
 
-    x = Lambda(channel_shuffle, arguments={'groups': groups}, name='%s/channel_shuffle' % prefix)(x)
+    x = Lambda(channel_shuffle, arguments={'groups': groups}, name='%s|channel_shuffle' % prefix)(x)
     x = DepthwiseConv2D(kernel_size=(3, 3), padding='same', use_bias=False,
-                        strides=strides, name='%s/1x1_dwconv_1' % prefix)(x)
-    x = BatchNormalization(axis=bn_axis, name='%s/bn_dwconv_1' % prefix)(x)
+                        strides=strides, name='%s|1x1_dwconv_1' % prefix)(x)
+    x = BatchNormalization(axis=bn_axis, name='%s|bn_dwconv_1' % prefix)(x)
 
     x = group_conv(x, bottleneck_channels,
                    out_channels=out_channels if strides == 1 else out_channels - in_channels,
-                   groups=groups, name='%s/1x1_gconv_2' % prefix)
-    x = BatchNormalization(axis=bn_axis, name='%s/bn_gconv_2' % prefix)(x)
+                   groups=groups, name='%s|1x1_gconv_2' % prefix)
+    x = BatchNormalization(axis=bn_axis, name='%s|bn_gconv_2' % prefix)(x)
 
     if strides < 2:
-        x = Add(name='%s/add' % prefix)([x, inputs])
+        x = Add(name='%s|add' % prefix)([x, inputs])
     else:
-        avg = AveragePooling2D(pool_size=3, strides=2, padding='same', name='%s/avg_pool' % prefix)(inputs)
-        x = Concatenate(bn_axis, name='%s/concat' % prefix)([x, avg])
+        avg = AveragePooling2D(pool_size=3, strides=2, padding='same', name='%s|avg_pool' % prefix)(inputs)
+        x = Concatenate(bn_axis, name='%s|concat' % prefix)([x, avg])
 
-    x = Activation('relu', name='%s/relu_out' % prefix)(x)
+    x = Activation('relu', name='%s|relu_out' % prefix)(x)
     return x
 
 
@@ -163,7 +163,10 @@ def shuffleseg(input_size=(480, 640, 3), loss='binary_crossentropy'):
     decoder = fcn8s(feed2, feed1, scorefr)
 
     model = Model(inp, decoder, name='shuffleseg')
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     return model

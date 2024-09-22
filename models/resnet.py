@@ -1,19 +1,19 @@
-from keras import backend as K
-from keras import layers
-from keras.layers import (
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import (
+    add,
     Activation,
-    Input,
+    BatchNormalization,
+    concatenate,
     Conv2D,
-    ZeroPadding2D,
+    Input,
     MaxPooling2D,
     UpSampling2D,
-    concatenate,
+    ZeroPadding2D,
 )
-from keras.layers.normalization import BatchNormalization
-from keras.models import Model
-from keras.optimizers import Adam
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
-from .metrics import mean_iou
+from .metrics import mean_iou, dice_coef_loss
 
 
 def identity_block(input_tensor, kernel_size, filters, stage, block):
@@ -36,7 +36,7 @@ def identity_block(input_tensor, kernel_size, filters, stage, block):
     x = Conv2D(filters3, (1, 1), name=conv_name_base + '2c')(x)
     x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2c')(x)
 
-    x = layers.add([x, input_tensor])
+    x = add([x, input_tensor])
     x = Activation('relu')(x)
     return x
 
@@ -64,7 +64,7 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2))
     shortcut = Conv2D(filters3, (1, 1), strides=strides, name=conv_name_base + '1')(input_tensor)
     shortcut = BatchNormalization(axis=bn_axis, name=bn_name_base + '1')(shortcut)
 
-    x = layers.add([x, shortcut])
+    x = add([x, shortcut])
     x = Activation('relu')(x)
     return x
 
@@ -97,7 +97,7 @@ def up_conv_block(input_tensor, kernel_size, filters, stage, block, strides=(1, 
     shortcut = Conv2D(filters3, (1, 1), strides=strides, name=conv_name_base + '1')(shortcut)
     shortcut = BatchNormalization(axis=bn_axis, name=bn_name_base + '1')(shortcut)
 
-    x = layers.add([x, shortcut])
+    x = add([x, shortcut])
     x = Activation('relu')(x)
     return x
 
@@ -165,8 +165,11 @@ def resnet(input_size=(480, 640, 3), loss='binary_crossentropy', f=16, big=True)
     x = Conv2D(classes, (3, 3), padding='same', activation='sigmoid', name='convLast')(x)
 
     model = Model(input, x, name='resnetUnet')
-    model.compile(optimizer=Adam(lr=0.001, decay=0.0005), loss=loss,
-                  metrics=['accuracy', mean_iou])
+    model.compile(
+        optimizer=Adam(learning_rate=0.001, weight_decay=0.0005),
+        loss=loss,
+        metrics=['accuracy', mean_iou]
+    )
 
     # larq.models.summary(model)
 

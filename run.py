@@ -5,15 +5,12 @@ import os
 import click
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
+os.environ["SM_FRAMEWORK"] = "tf.keras"
 
 import numpy as np
-
-import keras.backend as K
-from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
-from keras.models import Model
-
-import segmentation_models as sm
-import matplotlib.pyplot as plt
+import tensorflow.keras.backend as K
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from tensorflow.keras.models import Model
 
 from data_generator import (
     train_generator,
@@ -110,7 +107,7 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
                                                    IMG_TARGET_SIZE[0],
                                                    now_str)
 
-    model_out = 'trained_models/{}.hdf5'.format(model_filename)
+    model_out = 'trained_models/{}.keras'.format(model_filename)
     model_checkpoint = ModelCheckpoint(model_out, monitor='val_loss',
                                        verbose=1, save_best_only=True)
     early_stopping = EarlyStopping(monitor='val_loss', patience=int(epochs*0.05))
@@ -158,12 +155,13 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
         if aug:
             steps_per_epoch *= 3
 
-        history = _model.fit_generator(my_data_gen,
-                                       steps_per_epoch=steps_per_epoch,
-                                       epochs=epochs,
-                                       callbacks=[model_checkpoint, early_stopping,
-                                                  tensorboard],
-                                       validation_data=(X_val, Y_val))
+        history = _model.fit(
+            my_data_gen,
+            steps_per_epoch=steps_per_epoch,
+            epochs=epochs,
+            callbacks=[model_checkpoint, early_stopping, tensorboard],
+            validation_data=(X_val, Y_val)
+        )
     # mainly just for testing purposes
     else:
         X_train, Y_train = load_data_memory([TRAIN_DIR, VAL_DIR],
@@ -186,8 +184,8 @@ def train(model, gen, plot, aug, epochs, hsv, weights, production):
         plt.savefig('plots/loss_{}.png'.format(model_filename))
 
         plt.figure()
-        plt.plot(history.history['acc'], label='train accuracy')
-        plt.plot(history.history['val_acc'], label='validation accuracy')
+        plt.plot(history.history['accuracy'], label='train accuracy')
+        plt.plot(history.history['val_accuracy'], label='validation accuracy')
         plt.plot(history.history['mean_iou'], label='train mean IoU')
         plt.plot(history.history['val_mean_iou'], label='validation mean IoU')
         plt.legend(loc='best')
@@ -198,7 +196,7 @@ def do_evaluate(model, hsv):
     eval_gen = eval_generator(1, TEST_DIR, 'image', 'masks',
                               img_target_size=IMG_TARGET_SIZE,
                               tohsv=hsv, aug=True)
-    loss, acc, miou = model.evaluate_generator(eval_gen, steps=3*N_TEST_SAMPLES,
+    loss, acc, miou = model.evaluate(eval_gen, steps=3*N_TEST_SAMPLES,
                                                verbose=0)
 
     return loss, acc, miou
@@ -250,8 +248,7 @@ def predict(model, path, hsv, save_mask):
     test_gen = test_data_generator(TEST_DIR, 'image',
                                    img_target_size=IMG_TARGET_SIZE,
                                    tohsv=hsv)
-    results = _model.predict_generator(test_gen, steps=N_TEST_SAMPLES,
-                                       verbose=1)
+    results = _model.predict(test_gen, steps=N_TEST_SAMPLES)
 
     save_predicted_images('data/predictions',
                           os.path.join(TEST_DIR, 'image'),

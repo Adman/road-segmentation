@@ -5,7 +5,7 @@ import glob
 import shutil
 from collections import namedtuple
 
-from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
@@ -165,11 +165,13 @@ class AlModel:
                                        update_freq='epoch')
 
     def fit_generator(self, data_generator, steps_per_epoch, validation_data):
-        h = self.model.fit_generator(data_generator,
-                                     steps_per_epoch=steps_per_epoch,
-                                     epochs=1,
-                                     callbacks=[self.model_checkpoint, self.tensorboard],
-                                     validation_data=validation_data)
+        h = self.model.fit(
+            data_generator,
+            steps_per_epoch=steps_per_epoch,
+            epochs=1,
+            callbacks=[self.model_checkpoint, self.tensorboard],
+            validation_data=validation_data
+        )
         self.epochs_trained += 1
         val_loss = h.history['val_loss'][0]
         # check if val loss decreased
@@ -275,8 +277,11 @@ def simulate(model, init, pick, stopping, epochs, simulation):
                                               img_target_size=IMG_TARGET_SIZE,
                                               augs=data_gen_args)
 
-                m.fit_generator(my_data_gen, steps_per_epoch=steps_per_epoch,
-                                validation_data=(X_val, Y_val))
+                m.fit(
+                    my_data_gen,
+                    steps_per_epoch=steps_per_epoch,
+                    validation_data=(X_val, Y_val)
+                )
                 train_epoch += 1
 
             train_epoch -= 1
@@ -314,9 +319,9 @@ def simulate(model, init, pick, stopping, epochs, simulation):
                                                m.epochs_trained,
                                                m.get_best('loss', greater_better=False),
                                                m.get_best('val_loss', greater_better=False),
-                                               m.get_best('acc'),
+                                               m.get_best('accuracy'),
                                                m.get_best('mean_iou'),
-                                               m.get_best('val_acc'),
+                                               m.get_best('val_accuracy'),
                                                m.get_best('val_mean_iou'),
                                                e[1],
                                                e[2]))

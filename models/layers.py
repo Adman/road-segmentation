@@ -1,7 +1,7 @@
 import numpy as np
-import keras.backend as K
 import tensorflow as tf
-from keras.layers import *
+from tensorflow.keras import backend as K
+from keras.layers import InputSpec, Layer
 
 
 # taken from
